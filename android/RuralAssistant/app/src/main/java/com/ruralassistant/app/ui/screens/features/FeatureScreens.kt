@@ -22,7 +22,11 @@ import com.google.gson.JsonObject
 import com.ruralassistant.app.BuildConfig
 import com.ruralassistant.app.data.remote.api.FeatureApiClient
 import com.ruralassistant.app.domain.model.AppLanguage
+import com.ruralassistant.app.RuralApp
+import com.ruralassistant.app.data.KnowledgePack
+import com.ruralassistant.app.utils.ConnectivityMonitor
 import com.ruralassistant.app.utils.DeviceId
+import com.ruralassistant.app.utils.NumberReadBack
 import kotlinx.coroutines.launch
 import java.util.Locale
 import java.util.UUID
@@ -63,6 +67,81 @@ private fun StatusText(message: String, error: Boolean = false) {
     if (message.isNotBlank()) Text(message, color = if (error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
 }
 
+/**
+ * Pack status that refreshes itself from the server whenever the phone is online.
+ * Besides "your copy is old", it now says *what* changed (hurdle 1).
+ */
+@Composable
+private fun rememberPackStatus(): State<KnowledgePack.Status> {
+    val context = LocalContext.current
+    val state = remember { mutableStateOf(KnowledgePack.status(context)) }
+    LaunchedEffect(Unit) { state.value = KnowledgePack.refresh(context) }
+    return state
+}
+
+/** Opens the official page where a fact can be confirmed. */
+private fun openUrl(context: android.content.Context, url: String) {
+    try {
+        context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+    } catch (_: Exception) {
+        // No browser on the device: the text still names the office to ask.
+    }
+}
+
+/** Tells the user how old their downloaded information is and what changed. */
+@Composable
+private fun FreshnessBanner(status: KnowledgePack.Status, language: AppLanguage) {
+    val context = LocalContext.current
+    val online = remember { ConnectivityMonitor(context).currentlyOnline() }
+    var expanded by remember { mutableStateOf(false) }
+    val changes = remember(status.changedCount) { KnowledgePack.changes(context) }
+    val stale = status.stale || status.hasChanges
+    Card(
+        Modifier.fillMaxWidth().padding(bottom = 12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (stale) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
+        ),
+    ) {
+        Column(Modifier.padding(12.dp)) {
+            Text(
+                (if (stale) "⚠ " else "✓ ") + KnowledgePack.message(status, language.code, online),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            val checkedOn = KnowledgePack.checkedOnLabel(status, language.code)
+            if (checkedOn.isNotBlank()) {
+                Spacer(Modifier.height(4.dp))
+                Text(checkedOn, style = MaterialTheme.typography.labelSmall)
+            }
+            if (changes.isNotEmpty()) {
+                Spacer(Modifier.height(6.dp))
+                TextButton(onClick = { expanded = !expanded }, contentPadding = PaddingValues(0.dp)) {
+                    Text(if (expanded) "Hide what changed" else "See what changed (${changes.size})")
+                }
+                if (expanded) {
+                    changes.forEach { change ->
+                        Column(Modifier.padding(top = 6.dp)) {
+                            Text(KnowledgePack.summaryFor(change, language.code, context), style = MaterialTheme.typography.bodySmall)
+                            change.verifyUrl?.let { url ->
+                                TextButton(onClick = { openUrl(context, url) }, contentPadding = PaddingValues(0.dp)) {
+                                    Text("Verify on the official page")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Amounts mentioned in a piece of text, shown so the user can double-check them. */
+private fun amountsIn(text: String): List<NumberReadBack.Item> =
+    NumberReadBack.extract(text).filter { it.kind == "amount" }
+
+private fun ttsLocale(language: AppLanguage) = when (language) {
+    AppLanguage.KANNADA -> Locale("kn", "IN"); AppLanguage.HINDI -> Locale("hi", "IN"); else -> Locale.US
+}
+
 @Composable
 fun AssistantFeatureScreen(language: AppLanguage, category: String = "general", title: String = "Ask GramSahayak") {
     val context = LocalContext.current
@@ -73,6 +152,21 @@ fun AssistantFeatureScreen(language: AppLanguage, category: String = "general", 
     var status by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
     var listening by remember { mutableStateOf(false) }
+    var micMode by remember { mutableStateOf("question") }   // "question" | "confirm"
+    var verifyNotice by remember { mutableStateOf("") }
+    var factAsOf by remember { mutableStateOf("") }
+    var factVerifyUrl by remember { mutableStateOf("") }
+    var factVerifyAt by remember { mutableStateOf("") }
+    var answerAmounts by remember { mutableStateOf(listOf<NumberReadBack.Item>()) }
+    var answerSpeech by remember { mutableStateOf(listOf<NumberReadBack.Segment>()) }
+    var answerLanguage by remember { mutableStateOf(language.code) }
+    // Read-back: numbers and dates heard in the question must be confirmed before
+    // the server releases an answer (hurdle 3).
+    var pendingItems by remember { mutableStateOf(listOf<NumberReadBack.Item>()) }
+    var pendingDates by remember { mutableStateOf(listOf<NumberReadBack.DateItem>()) }
+    var pendingToken by remember { mutableStateOf("") }
+    var pendingPrompt by remember { mutableStateOf("") }
+    val pack by rememberPackStatus()
     val tts = remember { TextToSpeech(context) {} }
     val recognizer = remember {
         if (SpeechRecognizer.isRecognitionAvailable(context)) SpeechRecognizer.createSpeechRecognizer(context) else null
@@ -80,34 +174,174 @@ fun AssistantFeatureScreen(language: AppLanguage, category: String = "general", 
     DisposableEffect(Unit) {
         onDispose { tts.shutdown(); recognizer?.destroy() }
     }
-    val speechPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) {
-            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, when (language) {
-                    AppLanguage.KANNADA -> "kn-IN"; AppLanguage.HINDI -> "hi-IN"; else -> "en-IN"
-                })
-                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
-            }
-            recognizer?.setRecognitionListener(object : android.speech.RecognitionListener {
-                override fun onReadyForSpeech(params: android.os.Bundle?) { listening = true }
-                override fun onBeginningOfSpeech() {}
-                override fun onRmsChanged(rmsdB: Float) {}
-                override fun onBufferReceived(buffer: ByteArray?) {}
-                override fun onEndOfSpeech() { listening = false }
-                override fun onError(error: Int) { listening = false; status = "Speech recognition error ($error). You can type your question." }
-                override fun onResults(results: android.os.Bundle?) {
-                    listening = false
-                    question = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
+
+    fun ttsLocaleFor(code: String) = when (code) {
+        "kn" -> Locale("kn", "IN"); "hi" -> Locale("hi", "IN"); else -> Locale.US
+    }
+
+    fun speakPrompt(text: String, code: String = language.code) {
+        if (text.isBlank()) return
+        tts.language = ttsLocaleFor(code)
+        tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "readback")
+    }
+
+    /** Everything the answer card shows, from either the direct or the confirmed call. */
+    fun renderAnswer(data: JsonObject) {
+        answerLanguage = data.str("answerLanguage", language.code)
+        answer = localized(data.get("answer"), AppLanguage.fromCode(answerLanguage))
+            .ifBlank { data.str("answer", "No answer returned.") }
+        val src = data.getAsJsonArray("trustedSources")
+        sources = src?.joinToString("\n") { it.asJsonObject.get("name")?.asString.orEmpty() } ?: ""
+        answerAmounts = amountsIn(answer)
+        val speech = data.getAsJsonArray("answerSpeech")
+        answerSpeech = speech?.mapNotNull { el ->
+            val o = el.asJsonObject
+            val type = o.str("type", "text")
+            // Prose segments carry "text"; number and date segments carry "display".
+            val text = if (type == "text") o.str("text") else o.str("display")
+            val readBack = o.str("readBack")
+            if (type == "text" && text.isBlank()) null else NumberReadBack.Segment(type, text, readBack)
+        } ?: emptyList<NumberReadBack.Segment>()
+
+        // How fresh this particular fact is, and where to confirm it (hurdle 1).
+        val fact = data.getAsJsonObject("fact")
+        factAsOf = fact?.str("asOf").orEmpty()
+        factVerifyUrl = fact?.str("verifyUrl").orEmpty()
+        factVerifyAt = fact?.str("verifyAt").orEmpty()
+        val recheck = data.getAsJsonObject("recheck")
+        verifyNotice = recheck?.let { localized(it.get("message"), AppLanguage.fromCode(answerLanguage)) }.orEmpty()
+        if (verifyNotice.isBlank() && data.get("verifyBeforeActing")?.asBoolean == true) {
+            verifyNotice = localized(data.get("staleNotice"), AppLanguage.fromCode(answerLanguage))
+                .ifBlank { KnowledgePack.message(pack, language.code, true) }
+        }
+        status = if (data.get("grounded")?.asBoolean == true) "Answer based on available knowledge." else "Please verify important details with an official source."
+        if (answerLanguage != language.code) {
+            status = "$status Answered in ${AppLanguage.fromCode(answerLanguage).nativeName}."
+        }
+    }
+
+    /** Ask the question. language=auto so the answer matches the language asked. */
+    fun submit() {
+        scope.launch {
+            loading = true; status = "Getting an answer…"; answer = ""; sources = ""; verifyNotice = ""
+            answerAmounts = emptyList(); answerSpeech = emptyList(); factAsOf = ""; factVerifyUrl = ""; factVerifyAt = ""
+            try {
+                val body = JsonObject().apply {
+                    addProperty("question", question.trim())
+                    // Let the server answer in the language the question is in,
+                    // even when the phone's menu is in another one (hurdle 2).
+                    addProperty("language", "auto")
+                    addProperty("category", category)
+                    addProperty("requireConfirmation", true)
+                    pack.version?.let { addProperty("packVersion", it) }
+                    pack.verifiedAtIso?.let { addProperty("packDownloadedAt", it) }
                 }
-                override fun onPartialResults(partialResults: android.os.Bundle?) {}
-                override fun onEvent(eventType: Int, params: android.os.Bundle?) {}
+                val data = api.ask(deviceId(context), body).dataObject()
+                if (data.get("requiresConfirmation")?.asBoolean == true) {
+                    val confirmation = data.getAsJsonObject("confirmation")
+                    pendingToken = confirmation?.str("token").orEmpty()
+                    val promptLang = data.str("language", language.code)
+                    pendingPrompt = confirmation?.getAsJsonObject("prompt")?.let {
+                        it.get(promptLang)?.takeUnless { e -> e.isJsonNull }?.asString
+                            ?: it.get("en")?.asString.orEmpty()
+                    }.orEmpty()
+                    pendingItems = NumberReadBack.extract(question)
+                    pendingDates = NumberReadBack.extractDates(question)
+                    status = pendingPrompt.ifBlank { NumberReadBack.confirmationPrompt(pendingItems, language.code, pendingDates) }
+                    speakPrompt(status, promptLang)
+                    return@launch
+                }
+                renderAnswer(data)
+            } catch (e: Exception) {
+                status = e.message ?: "Unable to connect to backend."
+            } finally {
+                loading = false
+            }
+        }
+    }
+
+    /** Ask the server to release the held answer, with the user's yes/no. */
+    fun resolveConfirmation(confirmed: Boolean?, utterance: String?) {
+        if (pendingToken.isBlank()) {
+            // No server token: this was the offline read-back only, so act locally.
+            pendingItems = emptyList(); pendingDates = emptyList(); pendingPrompt = ""
+            if (confirmed == true) submit() else status = "Please correct the question."
+            return
+        }
+        scope.launch {
+            loading = true
+            try {
+                val body = JsonObject().apply {
+                    addProperty("token", pendingToken)
+                    if (confirmed != null) addProperty("confirmed", confirmed)
+                    if (!utterance.isNullOrBlank()) addProperty("utterance", utterance)
+                }
+                val data = api.confirmAnswer(deviceId(context), body).dataObject()
+                val stillOpen = data.get("retry")?.asBoolean == true
+                if (stillOpen) {
+                    status = "Please say yes or no."
+                    return@launch
+                }
+                if (data.get("cancelled")?.asBoolean == true) {
+                    val msg = localized(data.get("message"), language)
+                    status = msg.ifBlank { "Cancelled. Please say the question again." }
+                    pendingToken = ""; pendingItems = emptyList(); pendingDates = emptyList(); pendingPrompt = ""
+                    speakPrompt(status)
+                    return@launch
+                }
+                pendingToken = ""; pendingItems = emptyList(); pendingDates = emptyList(); pendingPrompt = ""
+                renderAnswer(data)
+            } catch (e: Exception) {
+                status = e.message ?: "Could not confirm. Please try again."
+            } finally {
+                loading = false
+            }
+        }
+    }
+
+    val speechPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (!granted) {
+            status = "Microphone permission is required for voice input."
+            return@rememberLauncherForActivityResult
+        }
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, when (language) {
+                AppLanguage.KANNADA -> "kn-IN"; AppLanguage.HINDI -> "hi-IN"; else -> "en-IN"
             })
-            recognizer?.startListening(intent)
-        } else status = "Microphone permission is required for voice input."
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+        }
+        recognizer?.setRecognitionListener(object : android.speech.RecognitionListener {
+            override fun onReadyForSpeech(params: android.os.Bundle?) { listening = true }
+            override fun onBeginningOfSpeech() {}
+            override fun onRmsChanged(rmsdB: Float) {}
+            override fun onBufferReceived(buffer: ByteArray?) {}
+            override fun onEndOfSpeech() { listening = false }
+            override fun onError(error: Int) { listening = false; status = "Speech recognition error ($error). You can type instead." }
+            override fun onResults(results: android.os.Bundle?) {
+                listening = false
+                val heard = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
+                if (micMode == "confirm") {
+                    // A spoken yes/no goes to the server, which understands all
+                    // three languages (hurdle 3).
+                    resolveConfirmation(null, heard)
+                } else {
+                    question = heard
+                }
+            }
+            override fun onPartialResults(partialResults: android.os.Bundle?) {}
+            override fun onEvent(eventType: Int, params: android.os.Bundle?) {}
+        })
+        recognizer?.startListening(intent)
+    }
+
+    fun startListening(mode: String) {
+        micMode = mode
+        speechPermission.launch(android.Manifest.permission.RECORD_AUDIO)
     }
 
     Page(title) {
+        FreshnessBanner(pack, language)
         Text("Ask in ${language.nativeName}. The assistant uses the connected knowledge base.", style = MaterialTheme.typography.bodyLarge)
         OutlinedTextField(
             value = question, onValueChange = { question = it },
@@ -117,41 +351,96 @@ fun AssistantFeatureScreen(language: AppLanguage, category: String = "general", 
         OutlinedButton(
             modifier = Modifier.fillMaxWidth(),
             enabled = recognizer != null && !loading && !listening,
-            onClick = {
-                if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                    speechPermission.launch(android.Manifest.permission.RECORD_AUDIO)
-                } else speechPermission.launch(android.Manifest.permission.RECORD_AUDIO)
-            }
-        ) { Text(if (listening) "Listening…" else "Speak your question") }
+            onClick = { startListening("question") },
+        ) { Text(if (listening && micMode == "question") "Listening…" else "Speak your question") }
         Button(
             enabled = question.trim().length >= 2 && !loading,
             modifier = Modifier.fillMaxWidth(),
             onClick = {
-                scope.launch {
-                    loading = true; status = "Getting an answer…"; answer = ""; sources = ""
-                    try {
-                        val body = JsonObject().apply {
-                            addProperty("question", question.trim())
-                            addProperty("language", langCode(language))
-                            addProperty("category", category)
-                        }
-                        val response = api.ask(deviceId(context), body).dataObject()
-                        answer = localized(response.get("answer"), language).ifBlank { response.str("answer", "No answer returned.") }
-                        val src = response.getAsJsonArray("trustedSources")
-                        sources = src?.joinToString("\n") { it.asJsonObject.get("name")?.asString.orEmpty() } ?: ""
-                        status = if (response.get("grounded")?.asBoolean == true) "Answer based on available knowledge." else "Please verify important details with an official source."
-                    } catch (e: Exception) { status = e.message ?: "Unable to connect to backend."; }
-                    finally { loading = false }
+                // Offline guard: if the server cannot be reached, still read the
+                // numbers back locally before the question leaves the phone.
+                val items = NumberReadBack.extract(question)
+                val dates = NumberReadBack.extractDates(question)
+                if ((items.any { it.risky } || dates.any { it.risky }) && pendingToken.isBlank()) {
+                    pendingItems = items
+                    pendingDates = dates
+                    pendingPrompt = NumberReadBack.confirmationPrompt(items, language.code, dates)
+                    speakPrompt(pendingPrompt)
                 }
+                submit()
             }
         ) { Text(if (loading) "Please wait…" else "Ask") }
+
+        // Read-back card: the server held the answer until these are confirmed.
+        if (pendingToken.isNotBlank() || pendingItems.isNotEmpty()) {
+            Card(
+                Modifier.fillMaxWidth().padding(top = 10.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+            ) {
+                Column(Modifier.padding(14.dp)) {
+                    Text("Please confirm the numbers and dates", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        pendingPrompt.ifBlank { NumberReadBack.confirmationPrompt(pendingItems, language.code, pendingDates) },
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    pendingItems.filter { it.confusions.isNotEmpty() }.forEach { item ->
+                        item.confusions.forEach { Text("• $it", color = MaterialTheme.colorScheme.error) }
+                    }
+                    pendingDates.filter { it.ambiguous }.forEach { date ->
+                        Text("• ${date.display} — ${date.readBack(language.code)}", color = MaterialTheme.colorScheme.error)
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            enabled = !loading,
+                            onClick = { resolveConfirmation(true, null) },
+                        ) { Text("Yes, correct") }
+                        OutlinedButton(
+                            enabled = !loading,
+                            onClick = { resolveConfirmation(false, null) },
+                        ) { Text("No, I will fix it") }
+                        TextButton(onClick = { startListening("confirm") }) { Text("Say yes") }
+                        TextButton(onClick = { speakPrompt(pendingPrompt) }) { Text("Hear again") }
+                    }
+                }
+            }
+        }
+
         StatusText(status, status.contains("Unable"))
         if (answer.isNotBlank()) {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp)) {
                     Text("Assistant response", style = MaterialTheme.typography.titleMedium)
+                    if (answerLanguage != language.code) {
+                        Text(
+                            "Answered in ${AppLanguage.fromCode(answerLanguage).nativeName}",
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    }
                     Spacer(Modifier.height(8.dp))
                     Text(answer, style = MaterialTheme.typography.bodyLarge)
+                    if (answerAmounts.isNotEmpty()) {
+                        Spacer(Modifier.height(10.dp))
+                        Text("Check these amounts", style = MaterialTheme.typography.titleSmall)
+                        answerAmounts.forEach { Text("${it.display} — ${it.spoken(language.code)}") }
+                    }
+                    if (factAsOf.isNotBlank()) {
+                        Spacer(Modifier.height(10.dp))
+                        Text("This rule was checked on $factAsOf", style = MaterialTheme.typography.labelSmall)
+                        if (factVerifyAt.isNotBlank()) {
+                            Text("Verify at $factVerifyAt", style = MaterialTheme.typography.labelSmall)
+                        }
+                        if (factVerifyUrl.isNotBlank()) {
+                            TextButton(onClick = { openUrl(context, factVerifyUrl) }, contentPadding = PaddingValues(0.dp)) {
+                                Text("Open the official page")
+                            }
+                        }
+                    }
+                    if (verifyNotice.isNotBlank()) {
+                        Spacer(Modifier.height(10.dp))
+                        Text("⚠ $verifyNotice", color = MaterialTheme.colorScheme.error)
+                    }
                     if (sources.isNotBlank()) {
                         Spacer(Modifier.height(10.dp))
                         Text("Trusted sources", style = MaterialTheme.typography.titleSmall)
@@ -159,9 +448,23 @@ fun AssistantFeatureScreen(language: AppLanguage, category: String = "general", 
                     }
                     Spacer(Modifier.height(12.dp))
                     OutlinedButton(onClick = {
-                        val locale = when (language) { AppLanguage.KANNADA -> Locale("kn", "IN"); AppLanguage.HINDI -> Locale("hi", "IN"); else -> Locale.US }
-                        tts.language = locale
-                        tts.speak(answer, TextToSpeech.QUEUE_FLUSH, null, "answer")
+                        tts.language = ttsLocaleFor(answerLanguage)
+                        if (answerSpeech.isNotEmpty()) {
+                            // Speak amounts and dates one by one, so a misheard
+                            // figure cannot slip through (hurdle 3).
+                            answerSpeech.forEach { segment ->
+                                when (segment.type) {
+                                    "text" -> tts.speak(segment.text, TextToSpeech.QUEUE_ADD, null, "seg")
+                                    else -> tts.speak("${segment.text}: ${segment.readBack}", TextToSpeech.QUEUE_ADD, null, "num")
+                                }
+                            }
+                        } else {
+                            tts.speak(answer, TextToSpeech.QUEUE_FLUSH, null, "answer")
+                            answerAmounts.forEach {
+                                tts.speak("${it.display}: ${it.readBack(language.code)}", TextToSpeech.QUEUE_ADD, null, "amount")
+                            }
+                        }
+                        if (verifyNotice.isNotBlank()) tts.speak(verifyNotice, TextToSpeech.QUEUE_ADD, null, "verify")
                     }) { Text("Read answer aloud") }
                 }
             }
@@ -171,6 +474,8 @@ fun AssistantFeatureScreen(language: AppLanguage, category: String = "general", 
 
 @Composable
 fun SchemesFeatureScreen(language: AppLanguage) {
+    val context = LocalContext.current
+    val pack by rememberPackStatus()
     val scope = rememberCoroutineScope()
     var items by remember { mutableStateOf(listOf<JsonObject>()) }
     var query by remember { mutableStateOf("") }
@@ -188,13 +493,28 @@ fun SchemesFeatureScreen(language: AppLanguage) {
                 items = api.schemes(q.ifBlank { null }).dataArray()
                 status = "${items.size} schemes found."
             } catch (e: Exception) {
-                status = e.message ?: "Could not load schemes."
+                // Offline: fall back to the downloaded pack (and say how old it is).
+                val cached = runCatching {
+                    (context.applicationContext as RuralApp).container.database.schemeDao().getByLanguage(language.code)
+                }.getOrDefault(emptyList()).filter { q.isBlank() || it.name.contains(q, true) || it.description.contains(q, true) }
+                if (cached.isNotEmpty()) {
+                    items = cached.map {
+                        JsonObject().apply {
+                            addProperty("id", it.id.substringBefore("|"))
+                            addProperty("name", it.name); addProperty("description", it.description)
+                            addProperty("eligibility", it.eligibility)
+                        }
+                    }
+                    status = "Offline: showing ${items.size} saved schemes."
+                } else status = e.message ?: "Could not load schemes."
             }
         }
     }
-    LaunchedEffect(Unit) { load() }
+    // Reload when the downloaded pack changes so newer rules replace old ones.
+    LaunchedEffect(pack.version) { load() }
 
     Page("Government schemes") {
+        FreshnessBanner(pack, language)
         OutlinedTextField(query, { query = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Search schemes") })
         Button(onClick = { load(query) }, modifier = Modifier.fillMaxWidth()) { Text("Search") }
         StatusText(status, status.contains("Could not"))
@@ -232,6 +552,12 @@ fun SchemesFeatureScreen(language: AppLanguage) {
                 Spacer(Modifier.height(8.dp))
                 Text(descriptionText)
             }
+            val amounts = amountsIn(descriptionText)
+            if (amounts.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Text("Amounts: " + amounts.joinToString(", ") { it.display } + " — confirm on the official portal before applying.",
+                    color = if (pack.stale) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
+            }
             if (eligibilityText.isNotBlank()) {
                 Spacer(Modifier.height(10.dp))
                 Text("Who can apply", style = MaterialTheme.typography.titleSmall)
@@ -241,6 +567,21 @@ fun SchemesFeatureScreen(language: AppLanguage) {
                 Spacer(Modifier.height(10.dp))
                 Text("How to apply", style = MaterialTheme.typography.titleSmall)
                 Text(applyText)
+            }
+            // When was this rule last checked, and where can it be confirmed?
+            // A scheme's amount or last date may have moved since the download.
+            val asOf = item.str("asOf")
+            val verifyAt = item.str("verifyAt")
+            val verifyUrl = item.str("verifyUrl")
+            if (asOf.isNotBlank()) {
+                Spacer(Modifier.height(10.dp))
+                Text("This rule was checked on $asOf", style = MaterialTheme.typography.labelSmall)
+                if (verifyAt.isNotBlank()) Text("Verify at $verifyAt", style = MaterialTheme.typography.labelSmall)
+                if (verifyUrl.isNotBlank()) {
+                    TextButton(onClick = { openUrl(context, verifyUrl) }, contentPadding = PaddingValues(0.dp)) {
+                        Text("Open the official page")
+                    }
+                }
             }
             Spacer(Modifier.height(12.dp))
             Button(

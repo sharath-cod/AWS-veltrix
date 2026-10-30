@@ -12,6 +12,9 @@ interface SchemeDao {
     @Query("SELECT * FROM schemes WHERE language = :language ORDER BY name")
     fun observeByLanguage(language: String): Flow<List<SchemeEntity>>
 
+    @Query("SELECT * FROM schemes WHERE language = :language ORDER BY name")
+    suspend fun getByLanguage(language: String): List<SchemeEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(items: List<SchemeEntity>)
 

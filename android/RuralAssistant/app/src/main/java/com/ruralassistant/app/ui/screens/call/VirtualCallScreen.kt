@@ -3,6 +3,7 @@ package com.ruralassistant.app.ui.screens.call
 import android.Manifest
 import android.media.MediaPlayer
 import android.media.MediaRecorder
+import android.speech.tts.TextToSpeech
 import android.util.Base64
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -21,11 +22,22 @@ import com.ruralassistant.app.BuildConfig
 import com.ruralassistant.app.data.remote.api.FeatureApiClient
 import com.ruralassistant.app.domain.model.AppLanguage
 import com.ruralassistant.app.utils.DeviceId
+import com.ruralassistant.app.utils.NumberReadBack
 import kotlinx.coroutines.launch
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.MediaType.Companion.toMediaType
 import java.io.File
+import java.util.Locale
 
+/**
+ * Simulated voice conversation.
+ *
+ * Hurdle 3 lives here in its hardest form: the user is speaking, so an amount
+ * can be misheard. With confirm=true the server does not answer a question that
+ * contains an amount, an ID or an ambiguous date. It reads the number back,
+ * returns a token, and only answers once the user says yes — in English, Hindi
+ * or Kannada.
+ */
 @Composable
 fun VirtualCallScreen(language: AppLanguage) {
     val context = LocalContext.current
@@ -41,6 +53,107 @@ fun VirtualCallScreen(language: AppLanguage) {
     var transcript by remember { mutableStateOf("") }
     var answer by remember { mutableStateOf("") }
     var player by remember { mutableStateOf<MediaPlayer?>(null) }
+    // Read-back state: the server is holding an answer until we confirm.
+    var pendingToken by remember { mutableStateOf("") }
+    var pendingPrompt by remember { mutableStateOf("") }
+    var confirmedNote by remember { mutableStateOf("") }
+    val tts = remember { TextToSpeech(context) {} }
+
+    fun ttsLocale() = when (language) {
+        AppLanguage.KANNADA -> Locale("kn", "IN"); AppLanguage.HINDI -> Locale("hi", "IN"); else -> Locale.US
+    }
+
+    fun speak(text: String) {
+        if (text.isBlank()) return
+        tts.language = ttsLocale()
+        tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "voice")
+    }
+
+    fun playReply(encoded: String) {
+        if (encoded.isBlank()) return
+        val audio = Base64.decode(encoded, Base64.DEFAULT)
+        val output = File(context.cacheDir, "assistant_reply.mp3")
+        output.writeBytes(audio)
+        player?.release()
+        player = MediaPlayer().apply {
+            setDataSource(output.absolutePath)
+            setOnCompletionListener { it.release(); player = null }
+            prepare()
+            start()
+        }
+    }
+
+    /** Read one server response, whichever path it came from. */
+    fun handleResponse(data: JsonObject?) {
+        if (data == null) return
+        transcript = data.get("transcript")?.asString.orEmpty()
+        answer = data.get("answer")?.asString.orEmpty()
+        val encoded = data.get("audio")?.asString.orEmpty()
+
+        if (data.get("requiresConfirmation")?.asBoolean == true) {
+            pendingToken = data.get("confirmationToken")?.asString.orEmpty()
+            pendingPrompt = answer
+            status = "Please confirm the amount, then say yes."
+            if (encoded.isNotBlank()) playReply(encoded) else speak(pendingPrompt)
+            return
+        }
+
+        val cancelled = data.get("cancelled")?.asBoolean == true
+        if (cancelled) {
+            pendingToken = ""; pendingPrompt = ""
+            status = answer.ifBlank { "Cancelled. Please record the question again." }
+            if (encoded.isNotBlank()) playReply(encoded) else speak(status)
+            return
+        }
+
+        val retry = data.get("retryConfirmation")?.asBoolean == true
+        if (retry) {
+            status = "Please say yes or no."
+            speak(status)
+            return
+        }
+
+        pendingToken = ""; pendingPrompt = ""
+        // What was confirmed, read back for the record.
+        confirmedNote = data.getAsJsonArray("confirmedNumbers")?.mapNotNull { el ->
+            val o = el.asJsonObject
+            val display = o.get("display")?.asString ?: return@mapNotNull null
+            val readBack = o.getAsJsonObject("readBack")?.get(language.code)?.asString.orEmpty()
+            if (readBack.isBlank()) display else "$display — $readBack"
+        }?.joinToString("; ").orEmpty()
+
+        if (encoded.isNotBlank()) {
+            playReply(encoded)
+            status = "Assistant replied. You can record another turn."
+        } else {
+            status = "Answer received, but spoken audio is unavailable. $answer"
+            speak(answer)
+        }
+    }
+
+    /** Send a turn: recorded audio, or a bare "haan"/"illa" when confirming. */
+    fun sendTurn(audioBytes: ByteArray?, token: String?, transcriptText: String?) {
+        busy = true
+        scope.launch {
+            try {
+                val body = (audioBytes ?: ByteArray(0)).toRequestBody("audio/mp4".toMediaType())
+                val response = api.voiceTurn(
+                    deviceId = deviceId,
+                    id = sessionId!!,
+                    language = language.code,
+                    confirm = true,
+                    confirmationToken = token,
+                    transcript = transcriptText,
+                    audio = body,
+                )
+                handleResponse(response.getAsJsonObject("data"))
+            } catch (e: Exception) {
+                status = e.message ?: "Could not process this voice turn. Check speech API configuration."
+            } finally {
+                busy = false
+            }
+        }
+    }
 
     fun startRecording() {
         try {
@@ -80,39 +193,9 @@ fun VirtualCallScreen(language: AppLanguage) {
             isRecording = false
         }
         if (file == null || !file.exists() || file.length() == 0L) return
-        busy = true
         status = "Understanding your question…"
-        scope.launch {
-            try {
-                val audioBytes = file.readBytes()
-                val requestBody = audioBytes.toRequestBody("audio/mp4".toMediaType())
-                val response = api.voiceTurn(deviceId, sessionId!!, language.code, requestBody)
-                val data = response.getAsJsonObject("data")
-                transcript = data?.get("transcript")?.asString.orEmpty()
-                answer = data?.get("answer")?.asString.orEmpty()
-                val encoded = data?.get("audio")?.asString.orEmpty()
-                if (encoded.isNotBlank()) {
-                    val audio = Base64.decode(encoded, Base64.DEFAULT)
-                    val output = File(context.cacheDir, "assistant_reply.mp3")
-                    output.writeBytes(audio)
-                    player?.release()
-                    player = MediaPlayer().apply {
-                        setDataSource(output.absolutePath)
-                        setOnCompletionListener { it.release(); player = null }
-                        prepare()
-                        start()
-                    }
-                    status = "Assistant replied. You can record another turn."
-                } else {
-                    status = "Answer received, but spoken audio is unavailable. $answer"
-                }
-            } catch (e: Exception) {
-                status = e.message ?: "Could not process this voice turn. Check speech API configuration."
-            } finally {
-                busy = false
-                file.delete()
-            }
-        }
+        sendTurn(file.readBytes(), null, null)
+        file.delete()
     }
 
     val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -124,6 +207,7 @@ fun VirtualCallScreen(language: AppLanguage) {
             try { recorder?.stop() } catch (_: Exception) {}
             recorder?.release()
             player?.release()
+            tts.shutdown()
         }
     }
 
@@ -151,7 +235,7 @@ fun VirtualCallScreen(language: AppLanguage) {
             Text("Connected · Session active", color = MaterialTheme.colorScheme.primary)
             Button(
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !busy,
+                enabled = !busy && pendingToken.isBlank(),
                 onClick = {
                     if (isRecording) stopAndSend()
                     else if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) startRecording()
@@ -165,21 +249,51 @@ fun VirtualCallScreen(language: AppLanguage) {
                     val id = sessionId ?: return@OutlinedButton
                     scope.launch {
                         busy = true
-                        try { api.endVoiceSession(id); sessionId = null; transcript = ""; answer = ""; status = "Call ended." }
-                        catch (e: Exception) { status = e.message ?: "Could not end call." }
+                        try {
+                            api.endVoiceSession(id); sessionId = null; transcript = ""; answer = ""
+                            pendingToken = ""; pendingPrompt = ""; confirmedNote = ""
+                            status = "Call ended."
+                        } catch (e: Exception) { status = e.message ?: "Could not end call." }
                         finally { busy = false }
                     }
                 }
             ) { Text("End call") }
         }
         Text(status, color = MaterialTheme.colorScheme.primary)
+
+        // Read-back card: the answer is held until the user confirms.
+        if (pendingToken.isNotBlank()) {
+            Card(
+                Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+            ) {
+                Column(Modifier.padding(14.dp)) {
+                    Text("Please confirm", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(6.dp))
+                    Text(pendingPrompt, style = MaterialTheme.typography.bodyLarge)
+                    Spacer(Modifier.height(10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(enabled = !busy, onClick = { sendTurn(null, pendingToken, "haan") }) { Text("Yes, correct") }
+                        OutlinedButton(enabled = !busy, onClick = { sendTurn(null, pendingToken, "nahi") }) { Text("No, fix it") }
+                        TextButton(onClick = { speak(pendingPrompt) }) { Text("Hear again") }
+                    }
+                }
+            }
+        }
+
         if (transcript.isNotBlank()) {
             Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(14.dp)) {
                 Text("You said", style = MaterialTheme.typography.titleSmall)
                 Text(transcript)
             } }
         }
-        if (answer.isNotBlank()) {
+        if (confirmedNote.isNotBlank()) {
+            Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(14.dp)) {
+                Text("Confirmed amount", style = MaterialTheme.typography.titleSmall)
+                Text(confirmedNote)
+            } }
+        }
+        if (answer.isNotBlank() && pendingToken.isBlank()) {
             Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(14.dp)) {
                 Text("GramSahayak", style = MaterialTheme.typography.titleSmall)
                 Text(answer)

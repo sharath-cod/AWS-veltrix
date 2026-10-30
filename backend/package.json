@@ -11,7 +11,11 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "seed": "node scripts/seed.js",
-    "smoke": "node scripts/smoke-test.js"
+    "smoke": "node scripts/smoke-test.js",
+    "contract": "node scripts/contract-test.js",
+    "verify": "node scripts/smoke-test.js && node scripts/contract-test.js && node scripts/hurdle-test.js",
+    "hurdles": "node scripts/hurdle-test.js",
+    "touch": "node scripts/touch-entry.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
