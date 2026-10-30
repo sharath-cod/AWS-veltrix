@@ -1,0 +1,23 @@
+# Secrets
+.env
+.env.*
+!.env.example
+local.properties
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Android / Gradle
+.gradle/
+build/
+*.iml
+.idea/
+captures/
+.cxx/
+.externalNativeBuild/
+*.apk
+*.aab
+
+# OS
+.DS_Store

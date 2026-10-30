@@ -1,0 +1,7 @@
+# Copy to local.properties (git-ignored). Android Studio adds sdk.dir automatically.
+#
+# Backend URL used by Retrofit (must end with / ; added automatically if missing).
+#  - Android emulator -> your PC:        http://10.0.2.2:5000/
+#  - Physical phone via USB:             http://localhost:5000/   (run: adb reverse tcp:5000 tcp:5000)
+#  - Deployed on Render:                 https://YOUR-SERVICE.onrender.com/
+API_BASE_URL=http://10.0.2.2:5000/
