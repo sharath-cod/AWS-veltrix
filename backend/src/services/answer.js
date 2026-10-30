@@ -80,16 +80,22 @@ async function withSafety(store, result, { question, lang, packVersion, packDown
  */
 function choosePool(all, { category, question }) {
   const asked = category && category !== 'general' ? String(category) : null;
+  // What the question itself looks like it is about. Used only to settle a tie
+  // between two entries that score the same (see retrieval.rank): a question
+  // about pregnancy danger signs belongs on the health shelf, not on the
+  // emergency shelf that also mentions the word "danger".
+  const guessed = detectCategory(question);
+  const preferCategory = asked || guessed;
   if (asked) {
     const shelf = all.filter((d) => d.category === asked);
     if (shelf.length) {
-      const onShelf = search(shelf, question, 'knowledge', { limit: 3 });
+      const onShelf = search(shelf, question, 'knowledge', { limit: 3, preferCategory });
       // A confident match inside the section the user opened: use it.
       if (onShelf.hits.length && !onShelf.weak) {
         return { pool: shelf, attempt: onShelf, categoryUsed: asked, categoryFallback: false };
       }
       // Otherwise see whether the question clearly belongs to another phase.
-      const anywhere = search(all, question, 'knowledge', { limit: 3 });
+      const anywhere = search(all, question, 'knowledge', { limit: 3, preferCategory });
       if (anywhere.hits.length && !anywhere.weak) {
         const winner = all.find((d) => d.id === anywhere.hits[0].doc.id);
         return {
@@ -104,11 +110,11 @@ function choosePool(all, { category, question }) {
       }
     }
   }
-  const everything = search(all, question, 'knowledge', { limit: 3 });
+  const everything = search(all, question, 'knowledge', { limit: 3, preferCategory });
   return {
     pool: all,
     attempt: everything,
-    categoryUsed: detectCategory(question) || asked || 'general',
+    categoryUsed: guessed || asked || 'general',
     categoryFallback: Boolean(asked),
   };
 }
@@ -122,9 +128,72 @@ function suggestionsFrom(all, { exclude, lang, limit = 3 }) {
     .filter(Boolean);
 }
 
+/**
+ * Repeat-question cache.
+ *
+ * The same handful of questions arrives again and again in a village — a queue
+ * at a CSC desk, a voice session, a demo — and retrieval for an unchanged
+ * corpus always gives the same answer. The base answer (retrieval + entry
+ * selection) is memoised, while the freshness block and the number read-back
+ * are still computed per request, because those depend on the device's pack
+ * version and on the exact words the user used.
+ *
+ * Only used when no model rewrite is configured: with BEDROCK_MODEL_ID set the
+ * wording is a live call, and caching it would freeze the phrasing.
+ */
+const ANSWER_CACHE_MAX = Number(process.env.ANSWER_CACHE_SIZE) || 400;
+const ANSWER_CACHE_TTL_MS = Number(process.env.ANSWER_CACHE_TTL_MS) || 300000;
+const ANSWER_CACHE = new Map();
+const ANSWER_CACHE_STATS = { hits: 0, misses: 0 };
+
+function cacheKey(question, lang, category, version) {
+  const normal = String(question).toLowerCase().replace(/\s+/g, ' ').trim();
+  return `${version}|${lang}|${category}|${normal}`;
+}
+
+function readAnswerCache(key) {
+  const hit = ANSWER_CACHE.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.at > ANSWER_CACHE_TTL_MS) {
+    ANSWER_CACHE.delete(key);
+    return null;
+  }
+  // Refresh recency: Map keeps insertion order, so re-inserting makes this the
+  // most recently used entry.
+  ANSWER_CACHE.delete(key);
+  ANSWER_CACHE.set(key, hit);
+  return hit.value;
+}
+
+function writeAnswerCache(key, value) {
+  if (ANSWER_CACHE.size >= ANSWER_CACHE_MAX) {
+    const oldest = ANSWER_CACHE.keys().next();
+    if (!oldest.done) ANSWER_CACHE.delete(oldest.value);
+  }
+  ANSWER_CACHE.set(key, { at: Date.now(), value });
+}
+
+/** Diagnostics for /api/health. */
+function answerCacheStats() {
+  return { size: ANSWER_CACHE.size, max: ANSWER_CACHE_MAX, ...ANSWER_CACHE_STATS };
+}
+
 async function answerFromKnowledge(ctx, input) {
   const lang = resolveLanguage(input.language, input.question);
-  const { result, entry } = await baseAnswer(ctx, { ...input, language: lang });
+  const cacheable = !(ctx.config && ctx.config.bedrockModelId);
+  const version = ctx.store && ctx.store.catalogVersion !== undefined ? ctx.store.catalogVersion : 0;
+  const key = cacheKey(input.question, lang, input.category || 'general', version);
+
+  let base = cacheable ? readAnswerCache(key) : null;
+  if (base) {
+    ANSWER_CACHE_STATS.hits += 1;
+  } else {
+    ANSWER_CACHE_STATS.misses += 1;
+    base = await baseAnswer(ctx, { ...input, language: lang });
+    if (cacheable) writeAnswerCache(key, base);
+  }
+
+  const { result, entry } = base;
   return withSafety(ctx.store, result, {
     question: input.question,
     lang,
@@ -192,20 +261,9 @@ async function baseAnswer({ store, config, speech }, { question, language = 'en'
     notices.push(`Nothing matched in the "${category}" section, so the whole knowledge base was searched.`);
   }
 
-  // Does the question talk about the same thing as the entry it matched? For a
-  // medical question this decides between answering and redirecting to 108/104,
-  // so a spurious keyword match cannot become medical advice.
-  const asked = new Set(detectConcepts(question));
-  const entryConcepts = new Set(detectConcepts([
-    ...Object.values(best.question || {}),
-    ...(best.tags || []),
-  ].join(' ')));
-  const conceptOverlap = [...asked].some((c) => entryConcepts.has(c));
-
   return {
     entry: best,
     result: {
-      conceptOverlap,
       answer,
       answerExtractive: extractive,
       grounded: true,
@@ -225,4 +283,6 @@ async function baseAnswer({ store, config, speech }, { question, language = 'en'
   };
 }
 
-module.exports = { answerFromKnowledge, LANGS, resolveLanguage };
+module.exports = {
+  answerFromKnowledge, LANGS, resolveLanguage, answerCacheStats,
+};

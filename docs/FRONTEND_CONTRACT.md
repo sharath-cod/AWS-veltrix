@@ -9,9 +9,8 @@ Run it with no AWS account, no API key and no open port:
 ```bash
 cd backend
 npm install
-npm run contract     # 131 checks
+npm run contract     # 161 checks
 npm run hurdles      # 89 checks for the three hurdle hints
-npm run call         # 66 checks for the AI call, including the 108 redirects
 npm run smoke        # 51 endpoint checks
 ```
 
@@ -34,11 +33,7 @@ npm run smoke        # 51 endpoint checks
 | Reminders | `GET/POST/PUT/DELETE /api/reminders` | `data[].{id,title,remindAt,completed}` |
 | Scam checker | `POST /api/scam-check` | `data.riskLevel`, `data.reasons[].text`, `data.advice` |
 | SMS centre | `POST /api/sms/preview`, `POST /api/sms/send`, `GET /api/sms` | `data.allowed`, `data.statusLabel`, `data.simulated`, `data.toMasked`, history rows |
-| Home → call logo | `POST /api/calls` | `data.id`, `data.status`, `data.language`, `data.greeting.text`, `data.greeting.language`, `data.pickupDelayMs`, `data.supportedLanguages`, `data.contentLanguages` |
-| Call → one turn | `POST /api/calls/{id}/turns?transcript=…` (or raw `audio/mp4`) | `data.transcript`, `data.answer`, `data.language`, `data.kind`, `data.urgency`, `data.redirect.numbers[]{number,label}`, `data.endCall`, `data.answerSpeech`, `data.grounded` |
-| Call → read back | `GET /api/calls/{id}` | `data.status`, `data.turns[]` |
-| Call → hang up | `DELETE /api/calls/{id}` | `data.status`, `data.durationSeconds`, `data.farewell` |
-| Virtual call (old screen) → start | `POST /api/voice-sessions` | `data.id`, `data.canTranscribe`, `data.speech` |
+| Virtual call → start | `POST /api/voice-sessions` | `data.id`, `data.canTranscribe`, `data.speech` |
 | Virtual call → turn | `POST /api/voice-sessions/{id}/turns?language=xx&confirm=true` (raw `audio/mp4`) | `data.transcript`, `data.answer`, `data.audio` (base64 mp3), `data.grounded`, `data.requiresConfirmation`, `data.confirmationToken` |
 | Virtual call → confirm | same turn with `&confirmationToken=…&transcript=haan` | `data.confirmed`, `data.confirmedNumbers[]`, `data.cancelled`, `data.retryConfirmation` |
 | Virtual call → end | `DELETE /api/voice-sessions/{id}` | `data.status` |
@@ -83,18 +78,6 @@ Device identity is the `X-Device-Id` header, sent by every call that stores some
   voice path holds the answer until the user confirms.
 - Without `requireConfirmation` every response is byte-for-byte the old shape, so an older APK
   keeps working.
-
-## The call
-
-`npm run call` proves the call flow: the greeting comes back in the caller's language
-(including Tamil, Telugu, Bengali, Marathi, Gujarati, Malayalam, Punjabi and Urdu), small
-talk is answered as conversation, a greeting followed by a question is still answered from
-the knowledge base, an amount in the question is read back, audio turns are transcribed,
-and — the safety rule — chest pain, bleeding, fits, a snake bite or thoughts of self-harm
-come back as `kind: "emergency"` / `"mental-health-crisis"` with `redirect.numbers`
-containing 108 (and 14416), in the language asked, with safe first aid. A dose question
-(`kind: "dose-refusal"`) and a medical question with no verified answer
-(`kind: "medical-uncertain"`) point at 104 instead of guessing.
 
 ## Response envelope
 

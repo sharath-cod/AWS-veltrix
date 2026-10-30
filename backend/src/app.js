@@ -21,7 +21,7 @@ function createApp(config, deps = {}) {
   // Voice turns arrive as raw audio, so the raw parser must be registered
   // before the JSON parser. JSON bodies under this path still fall through.
   app.use(
-    ['/api/voice-sessions', '/api/calls'],
+    '/api/voice-sessions',
     express.raw({
       type: ['audio/*', 'application/octet-stream'],
       limit: config.maxAudioBytes || 8 * 1024 * 1024,

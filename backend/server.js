@@ -26,7 +26,28 @@ async function main() {
   const speech = createSpeechService(config);
 
   if (config.mongoUri) {
+    // Build the indexes the list and change-feed queries rely on. Harmless to
+    // repeat: MongoDB skips indexes that already exist.
+    try {
+      const { Models } = require('./src/store/mongo');
+      await Promise.all(Object.values(Models).map((model) => model.createIndexes()));
+      console.log('[db] indexes ensured');
+    } catch (err) {
+      console.warn(`[db] index creation skipped: ${err.message}`);
+    }
     await ensureSeeded(store);
+  }
+
+  // Build the search index before the first request, so no user pays the
+  // one-off indexing cost while waiting for an answer.
+  try {
+    const { warmIndex } = require('./src/services/retrieval');
+    const started = process.hrtime.bigint();
+    await warmIndex(store);
+    const ms = Number(process.hrtime.bigint() - started) / 1e6;
+    console.log(`[search] index ready in ${ms.toFixed(1)} ms`);
+  } catch (err) {
+    console.warn(`[search] index warm-up skipped: ${err.message}`);
   }
 
   const app = createApp(config, { store, speech });

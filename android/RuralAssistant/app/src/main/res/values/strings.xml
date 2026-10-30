@@ -48,21 +48,4 @@
     <string name="diag_checking" translatable="false">Checking backend…</string>
     <string name="diag_sync_now" translatable="false">Run sync worker</string>
     <string name="diag_sync_queued" translatable="false">Sync queued. It runs when internet is available.</string>
-    <string name="call_now">Call GramSahayak</string>
-    <string name="call_subtitle">Tap to talk — the assistant answers in your language</string>
-    <string name="call_connecting">Calling GramSahayak…</string>
-    <string name="call_connected">Connected</string>
-    <string name="call_pickup">GramSahayak picked up</string>
-    <string name="call_listening">Listening…</string>
-    <string name="call_thinking">Getting an answer…</string>
-    <string name="call_end">End call</string>
-    <string name="call_ended">Call ended</string>
-    <string name="call_mute">Mute</string>
-    <string name="call_unmute">Unmute</string>
-    <string name="call_say">Speak</string>
-    <string name="call_you">You</string>
-    <string name="call_ai">GramSahayak</string>
-    <string name="call_emergency">This needs urgent help</string>
-    <string name="call_dial">Call</string>
-    <string name="call_retry">Tap to speak again</string>
 </resources>

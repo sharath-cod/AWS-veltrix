@@ -7,22 +7,64 @@ const { getDatabaseStatus } = require('../config/database');
 
 const localisedField = { en: String, hi: String, kn: String };
 
+/**
+ * Freshness metadata shared by every content document.
+ *
+ * These fields were being written by the seed and then silently dropped here,
+ * because a Mongoose schema in strict mode discards paths it does not declare.
+ * That broke hurdle 1 in MongoDB mode only: /api/knowledge/changes had no asOf
+ * to compare against, and the per-answer recheck block came back empty. They
+ * are now declared explicitly.
+ */
+const freshnessFields = {
+  asOf: { type: String, index: true },
+  volatile: { type: Boolean, default: false },
+  volatileFacts: [String],
+  verifyUrl: { type: String, default: null },
+  verifyAt: String,
+  contentHash: String,
+  // The date the content was checked, not the date the row was written, so it
+  // is a plain string and is not touched by Mongoose.
+  updatedAt: String,
+};
+
+/**
+ * `timestamps` is limited to createdAt on purpose: the seed carries a
+ * deterministic updatedAt (the day the fact was reviewed), and letting
+ * Mongoose overwrite it with "now" would make every phone think every answer
+ * had just changed.
+ */
+const contentOptions = {
+  timestamps: { createdAt: true, updatedAt: false },
+  versionKey: false,
+};
+
 const knowledgeSchema = new mongoose.Schema(
   {
     id: { type: String, required: true, unique: true, index: true },
+    key: String,
+    type: { type: String, default: 'knowledge' },
     category: { type: String, index: true },
     tags: [String],
     question: localisedField,
     answer: localisedField,
     sources: [{ name: String }],
     verified: { type: Boolean, default: false },
+    ...freshnessFields,
   },
-  { timestamps: true, versionKey: false },
+  contentOptions,
 );
+// The two queries the app actually makes: a whole shelf, and the change feed
+// (newest checked first).
+knowledgeSchema.index({ category: 1, asOf: -1 });
+knowledgeSchema.index({ volatile: 1, asOf: -1 });
+knowledgeSchema.index({ tags: 1 });
 
 const schemeSchema = new mongoose.Schema(
   {
     id: { type: String, required: true, unique: true, index: true },
+    key: String,
+    type: { type: String, default: 'scheme' },
     category: { type: String, index: true },
     tags: [String],
     name: localisedField,
@@ -31,13 +73,18 @@ const schemeSchema = new mongoose.Schema(
     apply: localisedField,
     source: { name: String, verified: Boolean },
     verified: { type: Boolean, default: false },
+    ...freshnessFields,
   },
-  { timestamps: true, versionKey: false },
+  contentOptions,
 );
+schemeSchema.index({ category: 1, asOf: -1 });
+schemeSchema.index({ tags: 1 });
 
 const scholarshipSchema = new mongoose.Schema(
   {
     id: { type: String, required: true, unique: true, index: true },
+    key: String,
+    type: { type: String, default: 'scholarship' },
     provider: String,
     open: { type: Boolean, default: true },
     deadline: String,
@@ -49,9 +96,12 @@ const scholarshipSchema = new mongoose.Schema(
     apply: localisedField,
     source: { name: String, verified: Boolean },
     verified: { type: Boolean, default: false },
+    ...freshnessFields,
   },
-  { timestamps: true, versionKey: false },
+  contentOptions,
 );
+// The list endpoint shows open scholarships soonest deadline first.
+scholarshipSchema.index({ open: 1, deadline: 1 });
 
 const savedSchema = new mongoose.Schema(
   {
@@ -75,6 +125,13 @@ const reminderSchema = new mongoose.Schema(
   },
   { timestamps: true, versionKey: false },
 );
+// The list is always "this device, soonest first".
+reminderSchema.index({ deviceId: 1, remindAt: 1 });
+// One reminder per client id, so an offline retry cannot create a duplicate.
+reminderSchema.index(
+  { deviceId: 1, clientId: 1 },
+  { unique: true, partialFilterExpression: { clientId: { $type: 'string' } } },
+);
 
 const smsSchema = new mongoose.Schema(
   {
@@ -90,6 +147,8 @@ const smsSchema = new mongoose.Schema(
   },
   { timestamps: true, versionKey: false },
 );
+// The SMS screen shows the newest messages for one device.
+smsSchema.index({ deviceId: 1, createdAt: -1 });
 
 const sessionSchema = new mongoose.Schema(
   {
@@ -108,6 +167,7 @@ const sessionSchema = new mongoose.Schema(
   },
   { timestamps: true, versionKey: false },
 );
+sessionSchema.index({ deviceId: 1, createdAt: -1 });
 
 const Models = {
   knowledge: mongoose.model('Knowledge', knowledgeSchema),

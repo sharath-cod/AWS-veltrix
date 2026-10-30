@@ -61,6 +61,39 @@ const VERIFY = {
   'kb-general-land-records': { url: null, at: 'the taluk office or the state land records portal' },
   'kb-general-gram-panchayat': { url: null, at: 'the Gram Panchayat office' },
   'kb-health-mental-health': { url: null, at: 'Tele-MANAS 14416 or the health centre' },
+
+  // --- added with knowledge-extra-3 and catalog-extra -----------------------
+  eshram: { url: 'https://eshram.gov.in', at: 'the eShram portal or a Common Service Centre' },
+  'pm-vishwakarma': { url: 'https://pmvishwakarma.gov.in', at: 'the PM Vishwakarma portal or a Common Service Centre' },
+  'jal-jeevan': { url: 'https://jaljeevanmission.gov.in', at: 'the Gram Panchayat or the Jal Jeevan Mission portal' },
+  'pm-surya-ghar': { url: 'https://pmsuryaghar.gov.in', at: 'the PM Surya Ghar portal or the state electricity company' },
+  nmmss: { url: 'https://scholarships.gov.in', at: 'the school or the National Scholarship Portal' },
+  'post-matric-disability': { url: 'https://scholarships.gov.in', at: 'the institution or the National Scholarship Portal' },
+  'kb-health-dog-bite': { url: null, at: 'the nearest government hospital or the health worker' },
+  'kb-health-delivery': { url: null, at: 'the ASHA worker or the nearest health centre' },
+  'kb-health-child-nutrition': { url: null, at: 'the Anganwadi worker or the health centre' },
+  'kb-health-teleconsultation': { url: 'https://esanjeevani.mohfw.gov.in', at: 'eSanjeevani or the Ayushman Arogya Mandir' },
+  'kb-scheme-eshram': { url: 'https://eshram.gov.in', at: 'the eShram portal or a Common Service Centre' },
+  'kb-scheme-vishwakarma': { url: 'https://pmvishwakarma.gov.in', at: 'the PM Vishwakarma portal or a Common Service Centre' },
+  'kb-scheme-jal-jeevan': { url: 'https://jaljeevanmission.gov.in', at: 'the Gram Panchayat or the village water committee' },
+  'kb-scheme-solar': { url: 'https://pmsuryaghar.gov.in', at: 'the PM Surya Ghar portal or the state electricity company' },
+  'kb-scheme-poshan': { url: null, at: 'the Anganwadi worker or the school' },
+  'kb-scheme-disability': { url: 'https://www.swavlambancard.gov.in', at: 'the UDID portal or the district hospital' },
+  'kb-doc-birth-death': { url: null, at: 'the Gram Panchayat or the municipal office' },
+  'kb-doc-voter-id': { url: 'https://voters.eci.gov.in', at: 'the voters portal or your Booth Level Officer' },
+  'kb-doc-name-correction': { url: 'https://uidai.gov.in', at: 'the Aadhaar enrolment centre or uidai.gov.in' },
+  'kb-agri-livestock': { url: null, at: 'the veterinary hospital or the animal husbandry office' },
+  'kb-agri-natural-farming': { url: null, at: 'the Raitha Samparka Kendra or the agriculture officer' },
+  'kb-agri-weather-advisory': { url: null, at: 'the Kisan Suvidha app or the agriculture office' },
+  'kb-fin-upi-safety': { url: 'https://cybercrime.gov.in', at: 'the cyber crime helpline 1930 or your bank branch' },
+  'kb-fin-post-office-savings': { url: null, at: 'the post office branch or the Bank Mitra point' },
+  'kb-edu-skill-training': { url: 'https://www.skillindiadigital.gov.in', at: 'the District Skill Development Office or the Skill India portal' },
+  'kb-edu-nios-open-school': { url: 'https://www.nios.ac.in', at: 'the NIOS website or an accredited institution' },
+  'kb-emergency-cyclone-storm': { url: null, at: 'the district control room or the panchayat' },
+  'kb-general-rti': { url: 'https://rtionline.gov.in', at: 'the Public Information Officer of that office' },
+  'kb-general-legal-aid': { url: 'https://nalsa.gov.in', at: 'the District Legal Services Authority or helpline 15100' },
+  'kb-general-complaint': { url: 'https://pgportal.gov.in', at: 'CPGRAMS or the district grievance office' },
+  'kb-general-gram-sabha': { url: null, at: 'the panchayat secretary' },
 };
 
 /** What moves quickly in each category. Everything not listed is stable. */
@@ -93,6 +126,10 @@ const CATEGORY_VERIFY_AT = {
 
 /** Entries whose content is stable even though the category moves. */
 const STABLE = new Set([
+  'kb-health-dog-bite',
+  'kb-health-first-aid',
+  'kb-emergency-cyclone-storm',
+  'kb-general-gram-sabha',
   'kb-agri-soil-health',
   'kb-agri-pest',
   'kb-general-gram-panchayat',
@@ -129,6 +166,24 @@ const ASOF_OVERRIDE = {
   'kb-scheme-pension': '2026-09-22',
   'kb-fin-insurance': '2026-09-22',
 };
+
+/**
+ * Everything added in the October coverage expansion was reviewed together on
+ * this date, so it is stamped per entry rather than moving a whole category's
+ * asOf (which would make old answers look freshly re-checked).
+ */
+const EXPANSION_ASOF = '2026-10-20';
+for (const id of [
+  'eshram', 'pm-vishwakarma', 'jal-jeevan', 'pm-surya-ghar', 'nmmss', 'post-matric-disability',
+  'kb-health-dengue-malaria', 'kb-health-dog-bite', 'kb-health-delivery',
+  'kb-health-child-nutrition', 'kb-health-first-aid', 'kb-health-teleconsultation',
+  'kb-scheme-eshram', 'kb-scheme-vishwakarma', 'kb-scheme-jal-jeevan', 'kb-scheme-solar',
+  'kb-scheme-poshan', 'kb-scheme-disability', 'kb-doc-birth-death', 'kb-doc-voter-id',
+  'kb-doc-name-correction', 'kb-agri-livestock', 'kb-agri-natural-farming',
+  'kb-agri-weather-advisory', 'kb-fin-upi-safety', 'kb-fin-post-office-savings',
+  'kb-edu-skill-training', 'kb-edu-nios-open-school', 'kb-emergency-cyclone-storm',
+  'kb-general-rti', 'kb-general-legal-aid', 'kb-general-complaint', 'kb-general-gram-sabha',
+]) ASOF_OVERRIDE[id] = EXPANSION_ASOF;
 
 /**
  * Facts for one entry.

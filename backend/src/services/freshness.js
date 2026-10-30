@@ -28,22 +28,49 @@ function stable(value) {
   return value;
 }
 
+/**
+ * The pack version is a SHA-1 over the whole corpus, which is the one genuinely
+ * expensive thing left in the answer path — it ran on every question. The
+ * corpus only changes when the store is re-seeded, so the computed half of the
+ * manifest is memoised against the knowledge snapshot itself (a WeakMap key, so
+ * a new snapshot means a new entry and the old one is freed). Only serverTime
+ * is regenerated per call, because that is the field that must be live.
+ */
+const MANIFEST_CACHE = new WeakMap();
+const MANIFEST_STATS = { computed: 0, reused: 0 };
+
 async function buildManifest(store) {
   const [schemes, knowledge] = await Promise.all([store.schemes.all(), store.knowledge.all()]);
-  const hash = crypto.createHash('sha1').update(JSON.stringify(stable({ schemes, knowledge }))).digest('hex').slice(0, 12);
-  const stamps = [...schemes, ...knowledge].map((d) => d.updatedAt || d.asOf).filter(Boolean).map((d) => new Date(d).getTime());
-  const asOf = stamps.length ? new Date(Math.max(...stamps)).toISOString() : BOOT_TIME;
-  const volatile = [...schemes, ...knowledge].filter((d) => d.volatile).length;
-  return {
-    packVersion: hash,
-    contentAsOf: asOf,
-    schemes: schemes.length,
-    knowledge: knowledge.length,
-    volatileEntries: volatile,
-    languages: ['en', 'hi', 'kn'],
-    maxAgeDays: MAX_AGE_DAYS,
-    serverTime: new Date().toISOString(),
-  };
+
+  const cached = MANIFEST_CACHE.get(knowledge);
+  let core = cached && cached.schemes === schemes ? cached.core : null;
+
+  if (core) {
+    MANIFEST_STATS.reused += 1;
+  } else {
+    const hash = crypto.createHash('sha1').update(JSON.stringify(stable({ schemes, knowledge }))).digest('hex').slice(0, 12);
+    const stamps = [...schemes, ...knowledge].map((d) => d.updatedAt || d.asOf).filter(Boolean).map((d) => new Date(d).getTime());
+    const asOf = stamps.length ? new Date(Math.max(...stamps)).toISOString() : BOOT_TIME;
+    const volatile = [...schemes, ...knowledge].filter((d) => d.volatile).length;
+    core = {
+      packVersion: hash,
+      contentAsOf: asOf,
+      schemes: schemes.length,
+      knowledge: knowledge.length,
+      volatileEntries: volatile,
+      languages: ['en', 'hi', 'kn'],
+      maxAgeDays: MAX_AGE_DAYS,
+    };
+    MANIFEST_CACHE.set(knowledge, { schemes, core });
+    MANIFEST_STATS.computed += 1;
+  }
+
+  return { ...core, serverTime: new Date().toISOString() };
+}
+
+/** Diagnostics for /api/health. */
+function manifestStats() {
+  return { ...MANIFEST_STATS };
 }
 
 const MESSAGES = {
@@ -252,6 +279,7 @@ function recheckFor(entry, freshness, { downloadedAt } = {}) {
 
 module.exports = {
   buildManifest,
+  manifestStats,
   compare,
   changesSince,
   recheckFor,

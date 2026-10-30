@@ -25,7 +25,7 @@ curl localhost:5000/api/health
   "speech": { "provider": "sarvam", "speechToText": "configured:sarvam", "textToSpeech": "aws-polly",
               "chain": ["sarvam"], "region": "ap-south-1", "notes": [] },
   "languages": ["en", "hi", "kn"],
-  "content": { "knowledge": 56, "schemes": 10, "scholarships": 6 },
+  "content": { "knowledge": 83, "schemes": 14, "scholarships": 8 },
   "features": { "query": true, "schemes": true, "scholarships": true, "reminders": true,
                 "scamCheck": true, "smsSimulation": true, "voice": true,
                 "speechToText": true, "textToSpeech": true },
@@ -55,7 +55,7 @@ curl localhost:5000/api/categories
 
 `GET /api/categories` returns the ten phases the assistant can answer (`health`, `schemes`,
 `scholarships`, `scam`, `agriculture`, `education`, `documents`, `emergency`, `finance`, `general`) with a
-trilingual `label` and an `entries` count, plus `total` (56).
+trilingual `label` and an `entries` count, plus `total` (83).
 
 ### Offline pack and "what changed"
 

@@ -14,14 +14,14 @@ apprunner.yaml            Optional AWS App Runner config (container build)
 
 This is the consolidated repository. It combines the deployment-ready pack (`AWS_Hackathon_updated`:
 hosting files, deployment/API/Android guides) with the newest implementation (`gramsahayak-final`:
-56-entry knowledge base, stale-knowledge feed, number read-back, multi-provider speech to text).
+83-entry knowledge base, stale-knowledge feed, number read-back, multi-provider speech to text).
 `docs/MERGE_REPORT.md` lists every difference found and how it was resolved.
 
 ## What works end to end
 
 | Screen | Backend | Notes |
 |---|---|---|
-| Ask / Health | `POST /api/query` | Retrieval over 56 trilingual entries in 10 phases, trusted sources, `grounded` flag, `language: "auto"`, optional Bedrock rewrite |
+| Ask / Health | `POST /api/query` | Retrieval over 83 trilingual entries in 10 phases, trusted sources, `grounded` flag, `language: "auto"`, optional Bedrock rewrite |
 | Ask → read-back card | `POST /api/query/confirm` | Amounts, IDs and ambiguous dates are read back before the answer is released |
 | Schemes | `GET /api/schemes`, `POST /api/schemes/check` | Search, details, indicative eligibility first pass |
 | Scholarships | `GET /api/scholarships`, `/saved` | Save and unsave per device |
@@ -33,9 +33,34 @@ hosting files, deployment/API/Android guides) with the newest implementation (`g
 | Sync | `POST /api/sync` | `SyncWorker` drains the Room outbox when the network returns |
 | Settings | `GET /api/health` | Reports store mode, speech providers, content counts and the three hurdle capabilities |
 
-Seed content: **10 schemes, 6 scholarships and 56 knowledge entries**, each written in English, Hindi
+Seed content: **14 schemes, 8 scholarships and 83 knowledge entries**, each written in English, Hindi
 and Kannada. Every record is marked `verified: false` on purpose — confirm with the official portal
 before quoting an amount or a deadline.
+
+### What the October 2026 enhancement changed
+
+**More information.** 27 new knowledge entries and 4 new schemes (e-Shram, PM Vishwakarma, Jal Jeevan
+Mission, PM Surya Ghar) plus 2 scholarships (NMMSS, post-matric for students with disabilities), all
+written in English, Hindi and Kannada: 83 entries in total across the ten phases. The new entries cover
+what rural users asked for and the pack did not answer — dog bites and rabies, safe delivery, child
+nutrition, first aid, teleconsultation, tap water, solar, disability entitlements, birth and death
+certificates, voter ID, name mismatches across documents, livestock, natural farming, weather advisory,
+UPI safety, post office savings, skill training, open schooling, storms and lightning, RTI, free legal
+aid, grievance escalation and the Gram Sabha. Each one carries the same freshness metadata as before,
+and none of them states an amount or a fee as fact: those are the numbers that change, so the entry
+tells the reader where to confirm.
+
+**A faster agent.** Retrieval now runs on an inverted index built once per content version instead of
+re-tokenising every entry per question, and the answer path caches the content snapshot, the pack
+version and repeat questions. On the development machine that is **3.4 ms per unseen question against
+23.6 ms before, with 48% more content**, and about 450 answers/second. `npm run bench` reproduces it.
+
+**A database that tells the truth.** The MongoDB schemas did not declare `asOf`, `volatile`,
+`volatileFacts`, `verifyUrl` or `verifyAt`, so Mongoose silently dropped them and the stale-knowledge
+feature only worked on the in-memory store. They are declared now, `updatedAt` is no longer overwritten
+with the row-write time, and the indexes the list and change-feed queries actually use are in place.
+Seeding on boot compares the stored counts with the seed and upserts when they differ, so a database
+created before a content update no longer keeps serving the old knowledge base.
 
 ### The three hurdles (stale knowledge, mixed language, misheard numbers)
 
@@ -55,7 +80,8 @@ Details: [docs/HURDLE_STALE_KNOWLEDGE_AND_READBACK.md](docs/HURDLE_STALE_KNOWLED
 cd backend
 cp .env.example .env      # leave MONGODB_URI empty for the in-memory demo store
 npm install
-npm run verify            # 51 smoke + 131 screen-contract + 89 hurdle checks
+npm run verify            # 53 smoke + 161 screen-contract + 89 hurdle checks
+npm run bench             # answer latency and index/cache diagnostics
 npm run dev               # http://localhost:5000/api/health
 ```
 

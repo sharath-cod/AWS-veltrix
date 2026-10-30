@@ -14,7 +14,11 @@ const i18n = require('./seed-i18n');
 const knowledgeExtra = [
   ...require('./knowledge-extra-1'),
   ...require('./knowledge-extra-2'),
+  ...require('./knowledge-extra-3'),
 ];
+// Schemes and scholarships added after the first seed file. They are already
+// in the { en, hi, kn } shape, so they skip the seed-en/seed-i18n join.
+const catalogExtra = require('./catalog-extra');
 
 /**
  * Hindi, Kannada and romanised keywords for the original English-tagged
@@ -62,7 +66,8 @@ function localise(kind, item) {
 }
 
 function buildSchemes() {
-  return en.schemes.map((item) => {
+  const fromExtra = catalogExtra.schemes.map((item) => buildCatalogItem(item, 'scheme'));
+  return [...en.schemes.map((item) => {
     const facts = factsFor(item.key, 'schemes');
     const fields = localise('scheme', item);
     return {
@@ -79,11 +84,40 @@ function buildSchemes() {
       source: { name: item.source, verified: false },
       verified: false,
     };
-  });
+  }), ...fromExtra];
+}
+
+/**
+ * A scheme or scholarship that already carries all three languages.
+ * Kept separate from the seed-en + seed-i18n join above so that new content
+ * does not need an entry in three different files.
+ */
+function buildCatalogItem(item, kind) {
+  const facts = factsFor(item.key, kind === 'scheme' ? 'schemes' : 'scholarships');
+  const fields = {};
+  for (const field of FIELDS[kind]) fields[field] = { ...item[field] };
+  return {
+    id: item.key,
+    key: item.key,
+    type: kind,
+    ...(item.category ? { category: item.category } : {}),
+    ...(item.provider ? { provider: item.provider } : {}),
+    ...(item.open !== undefined ? { open: item.open } : {}),
+    ...(item.deadline ? { deadline: item.deadline } : {}),
+    ...(item.amount ? { amount: item.amount } : {}),
+    tags: item.tags,
+    ...fields,
+    ...facts,
+    contentHash: contentHash(fields),
+    updatedAt: `${facts.asOf}T00:00:00.000Z`,
+    source: { name: item.source, verified: false },
+    verified: false,
+  };
 }
 
 function buildScholarships() {
-  return en.scholarships.map((item) => {
+  const fromExtra = catalogExtra.scholarships.map((item) => buildCatalogItem(item, 'scholarship'));
+  return [...en.scholarships.map((item) => {
     const facts = factsFor(item.key, 'scholarships');
     const fields = localise('scholarship', item);
     return {
@@ -102,7 +136,7 @@ function buildScholarships() {
       source: { name: item.source, verified: false },
       verified: false,
     };
-  });
+  }), ...fromExtra];
 }
 
 function buildKnowledge() {

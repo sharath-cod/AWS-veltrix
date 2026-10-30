@@ -173,7 +173,7 @@ android/…/ui/screens/call/VirtualCallScreen.kt   voice read-back and spoken ye
 ```bash
 cd backend
 npm run hurdles    # 89 checks: change feed, mixed language, read-back gate, dates, yes/no
-npm run verify     # smoke (51) + contract (131) + hurdles (89)
+npm run verify     # smoke (53) + contract (161) + hurdles (89)
 ```
 
 Not done, deliberately: the number lexicon covers the numbers and dates people actually say,

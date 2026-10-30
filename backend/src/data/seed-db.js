@@ -18,10 +18,6 @@ async function seedDatabase({ force = false, log = console.log } = {}) {
     log('[seed] cleared schemes, scholarships and knowledge');
   }
 
-  const existing = await Models.schemes.countDocuments();
-  if (existing > 0 && !force) {
-    return { skipped: true, existing };
-  }
 
   const ops = [
     ...seed.schemes.map((doc) => ({
@@ -43,6 +39,9 @@ async function seedDatabase({ force = false, log = console.log } = {}) {
   if (opsS.length) await Models.scholarships.bulkWrite(opsS);
   if (opsK.length) await Models.knowledge.bulkWrite(opsK);
 
+  // The upserts above are idempotent, so this is safe to run on every boot:
+  // existing rows are updated in place and new entries are added. Nothing is
+  // ever deleted here unless force was passed.
   log(
     `[seed] upserted ${seed.schemes.length} schemes, ${seed.scholarships.length} scholarships, ${seed.knowledge.length} knowledge entries`,
   );
@@ -56,13 +55,39 @@ async function seedDatabase({ force = false, log = console.log } = {}) {
   };
 }
 
-/** Called on boot: only seeds when the database looks empty. */
+/**
+ * Called on boot.
+ *
+ * It used to seed only when the schemes collection was empty, which meant a
+ * database created before a content update never received the new entries —
+ * the deployment looked healthy while answering from an old knowledge base.
+ * Now the stored counts are compared with the seed and, when they differ, the
+ * idempotent upsert runs. Existing rows are updated in place, nothing is
+ * duplicated, and no data is deleted.
+ */
 async function ensureSeeded(store, log = console.log) {
   if (!store || store.mode !== 'mongo') return { skipped: true, reason: 'in-memory store is pre-seeded' };
+  if (String(process.env.SEED_ON_BOOT).toLowerCase() === 'false') {
+    return { skipped: true, reason: 'SEED_ON_BOOT=false' };
+  }
   try {
-    const schemes = await store.schemes.all();
-    if (schemes.length > 0) return { skipped: true, existing: schemes.length };
-    return await seedDatabase({ log });
+    const seed = buildSeed();
+    const [schemes, scholarships, knowledge] = await Promise.all([
+      store.schemes.all(), store.knowledge.all(), store.scholarships.all(),
+    ]);
+    const upToDate = schemes.length === seed.schemes.length
+      && knowledge.length === seed.knowledge.length
+      && scholarships.length === seed.scholarships.length;
+    if (upToDate) {
+      return { skipped: true, reason: 'content already matches the seed' };
+    }
+    log(
+      `[seed] content drift: stored ${schemes.length}/${knowledge.length}/${scholarships.length} `
+      + `schemes/knowledge/scholarships vs seed ${seed.schemes.length}/${seed.knowledge.length}/${seed.scholarships.length}`,
+    );
+    const result = await seedDatabase({ log });
+    if (store.invalidate) store.invalidate();
+    return result;
   } catch (err) {
     log(`[seed] skipped: ${err.message}`);
     return { skipped: true, error: err.message };

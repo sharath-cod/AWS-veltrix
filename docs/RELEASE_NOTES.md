@@ -1,7 +1,7 @@
 # GramSahayak — final pack
 
 The app, the backend and the three hurdle mechanisms in one folder. The backend ships three
-suites: **51 endpoint checks, 131 screen-contract checks, 89 hurdle checks** (`npm run verify`).
+suites: **53 endpoint checks, 161 screen-contract checks, 89 hurdle checks** (`npm run verify`).
 
 > This file is the release note from the `gramsahayak-final` iteration, kept as written. In the
 > consolidated repository these files live under `docs/`; see `../README.md` for the current layout
@@ -12,6 +12,35 @@ android/        the Compose app (unchanged dependencies, no Gradle edits needed)
 backend/        the Express API (Node 18+, four packages, no AWS SDK)
 docs/           architecture, API, deployment, Android guide, frontend contract, hurdle write-up
 ```
+
+## October 2026 — content expansion and a faster answer path
+
+**Content.** The knowledge base grows from 56 to 83 entries and the catalogue from 10 to 14 schemes and
+6 to 8 scholarships, all trilingual. The 27 new entries fill the gaps a rural user notices first: dog
+bites and rabies, safe delivery and the free entitlements around it, child nutrition and the Anganwadi,
+first aid before the hospital, teleconsultation, e-Shram, PM Vishwakarma, tap water, solar, disability
+certificates and pensions, birth and death registration, voter ID, name mismatches across documents,
+livestock and veterinary help, natural farming, weather advisory, UPI safety, post office savings, skill
+training, open schooling, storms and lightning, RTI, free legal aid, grievance escalation and the Gram
+Sabha. `scripts/contract-test.js` now asks ten of them in all three languages, so new content cannot
+ship answering only in English.
+
+**Speed.** Retrieval was re-tokenising every entry on every question and reading the whole knowledge
+base out of the store several times per request. It now uses an inverted index (built once per content
+version, warmed at boot) plus three small caches — content snapshot, pack version, repeat questions.
+Unseen questions went from 23.6 ms to 3.4 ms with half again as much content; `npm run bench` prints the
+numbers, and `/api/health` exposes them under `performance`.
+
+**Correctness.** Two changes to ranking: ties between equally-scoring entries are settled by the
+category the question belongs to and then by the rarity of the matched word in other entries'
+questions, rather than by which entry sits earlier in the file. That is what stops a newly added entry
+from silently stealing questions from an existing one.
+
+**Database.** The MongoDB schemas were missing the freshness fields (`asOf`, `volatile`,
+`volatileFacts`, `verifyUrl`, `verifyAt`, `contentHash`), which Mongoose drops in strict mode — so the
+stale-knowledge feature was broken in MongoDB mode only. They are declared now, along with the compound
+indexes the list and change-feed queries use, and seeding on boot upserts when the stored content no
+longer matches the seed.
 
 ---
 
@@ -25,7 +54,7 @@ properly — on the server, on the phone, and offline.
 
 - Every entry now carries **`asOf`** (the date that fact was last checked), **`volatileFacts`**
   (amount / deadline / eligibility / fees / contact), **`verifyUrl`** (official page) and
-  **`verifyAt`** (who to ask when there is no page). 48 of 56 entries are marked volatile; the
+  **`verifyAt`** (who to ask when there is no page). 85 of 97 entries are marked volatile; the
   other 8 are stable, so the app stops nagging about a snake-bite answer that cannot go stale.
 - **`GET /api/knowledge/changes?downloadedAt=…&have=…`** answers *what* changed, not just
   *that* something changed: the entries re-checked after this phone's download, with the facts

@@ -105,7 +105,7 @@ async function main() {
   check('health reports the store mode', Boolean(health.json.storeMode), health.json.storeMode);
   check('health lists the three languages', JSON.stringify(health.json.languages) === '["en","hi","kn"]', health.json.languages);
   check('health reports speech-to-text availability', health.json.features.speechToText === true, health.json.features);
-  check('health counts the knowledge base', health.json.content.knowledge >= 50, health.json.content);
+  check('health counts the knowledge base', health.json.content.knowledge >= 80, health.json.content);
   check('health exposes the speech chain', Array.isArray(health.json.speech.chain), health.json.speech);
 
   // ------------------------------------------------ Ask screen (all languages)
@@ -132,6 +132,19 @@ async function main() {
     { phase: 'finance', en: 'open a bank account with no minimum balance', hi: 'बिना न्यूनतम बैलेंस बैंक खाता खोलना', kn: 'ಕನಿಷ್ಠ ಬ್ಯಾಲೆನ್ಸ್ ಇಲ್ಲದ ಬ್ಯಾಂಕ್ ಖಾತೆ', expect: 'kb-fin-bank-account' },
     { phase: 'finance', en: 'scheme money did not come to my account, check DBT status', hi: 'योजना का पैसा खाते में नहीं आया, डीबीटी जांच', kn: 'ಯೋಜನೆಯ ಹಣ ಖಾತೆಗೆ ಬಂದಿಲ್ಲ, ಡಿಬಿಟಿ ಪರಿಶೀಲನೆ', expect: 'kb-fin-dbt' },
     { phase: 'general', en: 'land record rtc mutation in my name', hi: 'ज़मीन का कागज़ नामांतरण', kn: 'ಭೂ ದಾಖಲೆ ನಾಮಾಂತರ', expect: 'kb-general-land-records' },
+    // The October coverage expansion: entries added in knowledge-extra-3 and
+    // catalog-extra, checked in all three languages so new content cannot ship
+    // answering only in English.
+    { phase: 'health', en: 'a dog bit my child what to do first', hi: 'कुत्ते ने बच्चे को काटा क्या करें', kn: 'ನಾಯಿ ಕಡಿದರೆ ಏನು ಮಾಡಬೇಕು', expect: 'kb-health-dog-bite' },
+    { phase: 'schemes', en: 'e shram card registration for a labourer', hi: 'ई श्रम कार्ड कैसे बनवाएं', kn: 'ಇ ಶ್ರಮ್ ಕಾರ್ಡ್ ಹೇಗೆ ಪಡೆಯುವುದು', expect: 'kb-scheme-eshram' },
+    { phase: 'documents', en: 'birth certificate registration', hi: 'जन्म प्रमाण पत्र कैसे बनवाएं', kn: 'ಜನನ ಪ್ರಮಾಣಪತ್ರ ಹೇಗೆ ಪಡೆಯುವುದು', expect: 'kb-doc-birth-death' },
+    { phase: 'general', en: 'right to information application', hi: 'सूचना का अधिकार आवेदन', kn: 'ಮಾಹಿತಿ ಹಕ್ಕು ಅರ್ಜಿ', expect: 'kb-general-rti' },
+    { phase: 'finance', en: 'is it safe to receive money on upi', hi: 'यूपीआई से पैसे लेना सुरक्षित है', kn: 'ಯುಪಿಐನಲ್ಲಿ ಹಣ ಪಡೆಯುವುದು ಸುರಕ್ಷಿತವೇ', expect: 'kb-fin-upi-safety' },
+    { phase: 'schemes', en: 'tap water connection at home', hi: 'घर पर नल का पानी कनेक्शन', kn: 'ಮನೆಗೆ ನಲ್ಲಿ ನೀರಿನ ಸಂಪರ್ಕ', expect: 'kb-scheme-jal-jeevan' },
+    { phase: 'emergency', en: 'what to do during lightning and storm', hi: 'बिजली गिरने और तूफान में क्या करें', kn: 'ಮಿಂಚು ಮತ್ತು ಚಂಡಮಾರುತದಲ್ಲಿ ಏನು ಮಾಡಬೇಕು', expect: 'kb-emergency-cyclone-storm' },
+    { phase: 'general', en: 'free legal aid lawyer for a poor family', hi: 'मुफ्त वकील कानूनी सहायता', kn: 'ಉಚಿತ ವಕೀಲ ಕಾನೂನು ಸಹಾಯ', expect: 'kb-general-legal-aid' },
+    { phase: 'documents', en: 'new voter id card apply', hi: 'वोटर आईडी कार्ड कैसे बनवाएं', kn: 'ಮತದಾರರ ಗುರುತಿನ ಚೀಟಿ ಹೇಗೆ ಪಡೆಯುವುದು', expect: 'kb-doc-voter-id' },
+    { phase: 'education', en: 'skill training for unemployed youth', hi: 'बेरोजगार युवाओं के लिए कौशल प्रशिक्षण', kn: 'ನಿರುದ್ಯೋಗಿ ಯುವಕರಿಗೆ ಕೌಶಲ್ಯ ತರಬೇತಿ', expect: 'kb-edu-skill-training' },
   ];
 
   for (const row of askMatrix) {
@@ -334,12 +347,12 @@ async function main() {
   console.log('\nOffline pack and freshness');
   const manifest = await call('GET', '/api/knowledge/manifest');
   check('manifest exposes a pack version', typeof manifest.json.data.packVersion === 'string' && manifest.json.data.packVersion.length === 12);
-  check('manifest counts knowledge and schemes', manifest.json.data.knowledge >= 50 && manifest.json.data.schemes >= 10, manifest.json.data);
+  check('manifest counts knowledge and schemes', manifest.json.data.knowledge >= 80 && manifest.json.data.schemes >= 14, manifest.json.data);
   const staleManifest = await call('GET', '/api/knowledge/manifest?have=deadbeef1234&downloadedAt=2020-01-01T00:00:00Z');
   check('an old pack is reported stale', staleManifest.json.data.freshness.status === 'stale', staleManifest.json.data.freshness);
   check('the stale message is trilingual', Boolean(staleManifest.json.data.freshness.message.en && staleManifest.json.data.freshness.message.hi && staleManifest.json.data.freshness.message.kn));
   const pack = await call('GET', '/api/knowledge/pack');
-  check('pack contains schemes and knowledge', (pack.json.data.schemes || []).length >= 10 && (pack.json.data.knowledge || []).length >= 50);
+  check('pack contains schemes and knowledge', (pack.json.data.schemes || []).length >= 14 && (pack.json.data.knowledge || []).length >= 80);
   check('pack knowledge is trilingual', (pack.json.data.knowledge || []).every((k) => k.answer.en && k.answer.hi && k.answer.kn));
 
   // ------------------------------------------------------------------ offline

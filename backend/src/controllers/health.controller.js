@@ -1,5 +1,8 @@
 const { getDatabaseStatus } = require('../config/database');
 const confirmations = require('../services/confirmations');
+const { indexStats } = require('../services/retrieval');
+const { manifestStats } = require('../services/freshness');
+const { answerCacheStats } = require('../services/answer');
 
 /**
  * GET /api/health
@@ -52,7 +55,6 @@ exports.getHealth = async (req, res) => {
       scamCheck: true,
       smsSimulation: Boolean(config && config.allowSmsSimulation),
       voice: canTranscribe,
-      call: true,
       speechToText: canTranscribe,
       textToSpeech: Boolean(speech && speech.status && speech.status.textToSpeech !== 'unavailable'),
     },
@@ -71,21 +73,20 @@ exports.getHealth = async (req, res) => {
         fractionWords: true,
         ambiguousDates: true,
       },
-      call: {
-        supported: true,
-        languages: ['en', 'hi', 'kn', 'ta', 'te', 'bn', 'mr', 'gu', 'ml', 'pa', 'ur'],
-        fullAnswerLanguages: ['en', 'hi', 'kn'],
-        medicalSafety: {
-          emergencyNumbers: ['108', '104', '14416'],
-          redFlags: 'chest pain, breathing, bleeding, fits, snake bite, poisoning, stroke, burns, accident, self-harm',
-        },
-      },
       numberReadback: {
         supported: true,
         serverGate: true,
         spokenConfirmation: true,
         pendingConfirmations: confirmations.size(),
       },
+    },
+    // How the answer path is doing. Visible so an operator can see that the
+    // index is built once and reused, rather than reading the code to find out.
+    performance: {
+      searchIndex: indexStats(),
+      packVersion: manifestStats(),
+      catalogCache: store && store.catalogStats ? store.catalogStats() : { mode: 'none' },
+      answerCache: answerCacheStats(),
     },
     uptimeSeconds: Math.round(process.uptime()),
     timestamp: new Date().toISOString(),

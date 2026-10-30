@@ -43,7 +43,7 @@ npm run verify
 ```
 
 `verify` runs three suites in sequence and each must end with `0 failed`: **51** endpoint checks
-(`smoke`), **131** screen-contract checks that replay every call the Android app makes in all three
+(`smoke`), **161** screen-contract checks that replay every call the Android app makes in all three
 languages (`contract`), and **89** checks for the stale-knowledge, mixed-language and read-back
 behaviour (`hurdles`). They boot the API in-process against the in-memory store, so they need no
 database, no AWS account, no API key and no open port. You can also run them one at a time
@@ -94,7 +94,7 @@ If the password contains `@`, `:`, `/` or `#`, URL-encode it (`@` → `%40`).
 
 ```bash
 cd backend
-npm run seed            # upserts 10 schemes, 6 scholarships, 56 knowledge entries (with asOf / verify data)
+npm run seed            # upserts 14 schemes, 8 scholarships, 83 knowledge entries (with asOf / verify data)
 npm run seed -- --force # wipe and reload, if you edited the seed data
 npm run dev
 ```

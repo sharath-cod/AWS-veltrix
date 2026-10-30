@@ -15,7 +15,7 @@ import com.ruralassistant.app.ui.screens.scholarships.ScholarshipsScreen
 import com.ruralassistant.app.ui.screens.schemes.SchemesScreen
 import com.ruralassistant.app.ui.screens.settings.SettingsScreen
 import com.ruralassistant.app.ui.screens.sms.SmsScreen
-import com.ruralassistant.app.ui.screens.call.CallScreen
+import com.ruralassistant.app.ui.screens.call.VirtualCallScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ruralassistant.app.ui.AppViewModelProvider
@@ -61,7 +61,7 @@ fun AppNavHost(
         composable(Screen.VirtualCall.route) {
             val settings: SettingsViewModel = viewModel(factory = AppViewModelProvider.Factory)
             val prefs = settings.prefs.collectAsStateWithLifecycle().value
-            CallScreen(language = prefs.language, onBack = { navController.popBackStack() })
+            VirtualCallScreen(prefs.language)
         }
     }
 }

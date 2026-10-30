@@ -38,21 +38,4 @@
     <string name="settings_voice">ಧ್ವನಿ ಉತ್ತರಗಳು</string>
     <string name="title_sms">SMS ಕೇಂದ್ರ</string>
     <string name="title_virtual_call">ವರ್ಚುವಲ್ ಕರೆ</string>
-    <string name="call_now">ಗ್ರಾಮಸಹಾಯಕ್‌ಗೆ ಕರೆ ಮಾಡಿ</string>
-    <string name="call_subtitle">ಮಾತನಾಡಲು ಒತ್ತಿ — ಸಹಾಯಕ ನಿಮ್ಮ ಭಾಷೆಯಲ್ಲಿ ಉತ್ತರಿಸುತ್ತದೆ</string>
-    <string name="call_connecting">ಗ್ರಾಮಸಹಾಯಕ್‌ಗೆ ಕರೆ ಹೋಗುತ್ತಿದೆ…</string>
-    <string name="call_connected">ಸಂಪರ್ಕವಾಗಿದೆ</string>
-    <string name="call_pickup">ಗ್ರಾಮಸಹಾಯಕ್ ಕರೆ ಸ್ವೀಕರಿಸಿದ್ದಾರೆ</string>
-    <string name="call_listening">ಕೇಳುತ್ತಿದ್ದೇನೆ…</string>
-    <string name="call_thinking">ಉತ್ತರ ಸಿದ್ಧವಾಗುತ್ತಿದೆ…</string>
-    <string name="call_end">ಕರೆ ಕಡಿತಗೊಳಿಸಿ</string>
-    <string name="call_ended">ಕರೆ ಮುಗಿಯಿತು</string>
-    <string name="call_mute">ಮ್ಯೂಟ್</string>
-    <string name="call_unmute">ಅನ್‌ಮ್ಯೂಟ್</string>
-    <string name="call_say">ಮಾತನಾಡಿ</string>
-    <string name="call_you">ನೀವು</string>
-    <string name="call_ai">ಗ್ರಾಮಸಹಾಯಕ್</string>
-    <string name="call_emergency">ಇದಕ್ಕೆ ತಕ್ಷಣ ಸಹಾಯ ಬೇಕು</string>
-    <string name="call_dial">ಕರೆ ಮಾಡಿ</string>
-    <string name="call_retry">ಮತ್ತೆ ಮಾತನಾಡಲು ಒತ್ತಿ</string>
 </resources>

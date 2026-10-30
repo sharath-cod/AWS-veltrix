@@ -68,10 +68,32 @@ async function main() {
   const health = await call('GET', '/api/health');
   check('GET /api/health reports running', health.status === 200 && health.json.success === true, health.json);
   check('health reports the store mode', health.json.storeMode === 'memory', health.json.storeMode);
+  check(
+    'health exposes answer-path diagnostics',
+    Boolean(health.json.performance && health.json.performance.searchIndex && health.json.performance.catalogCache && health.json.performance.answerCache),
+    health.json.performance,
+  );
 
   // --- knowledge -----------------------------------------------------------
   const kb = await call('GET', '/api/knowledge');
   check('GET /api/knowledge returns the seeded base', kb.json.count >= 12, kb.json.count);
+
+  // The same question twice must give the same answer: the repeat-question
+  // cache must never change what the user is told.
+  const repeatA = await call('POST', '/api/query', {
+    headers: { 'x-device-id': DEVICE },
+    body: { question: 'what should I do for fever', language: 'en', category: 'general' },
+  });
+  const repeatB = await call('POST', '/api/query', {
+    headers: { 'x-device-id': DEVICE },
+    body: { question: 'what should I do for fever', language: 'en', category: 'general' },
+  });
+  check(
+    'a repeated question returns an identical answer',
+    repeatA.json.data.matchedKey === repeatB.json.data.matchedKey
+      && repeatA.json.data.answer === repeatB.json.data.answer,
+    { first: repeatA.json.data.matchedKey, second: repeatB.json.data.matchedKey },
+  );
 
   const kbHealth = await call('GET', '/api/knowledge?category=health');
   check('knowledge category filter works', kbHealth.json.count >= 4, kbHealth.json.count);
