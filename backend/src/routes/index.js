@@ -7,6 +7,8 @@ router.use('/schemes', require('./schemes.routes'));
 router.use('/scholarships', require('./scholarships.routes'));
 router.use('/reminders', require('./reminders.routes'));
 router.use('/scam-check', require('./scam-check.routes'));
+router.use('/sms', require('./sms.routes'));
+router.use('/voice-sessions', require('./voice-sessions.routes'));
 router.use('/sync', require('./sync.routes'));
 
 module.exports = router;

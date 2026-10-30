@@ -1,7 +1,9 @@
 const router = require('express').Router();
-const { notImplemented } = require('../controllers/placeholder.controller');
+const asyncHandler = require('../utils/asyncHandler');
+const requireDevice = require('../middleware/device');
+const controller = require('../controllers/sync.controller');
 
-// Placeholder: implemented in a later phase.
-router.use(notImplemented('Sync'));
+router.get('/', requireDevice, asyncHandler(controller.status));
+router.post('/', requireDevice, asyncHandler(controller.push));
 
 module.exports = router;

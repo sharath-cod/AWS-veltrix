@@ -1,13 +1,17 @@
 {
-  "name": "rural-assistant-backend",
-  "version": "0.1.0",
-  "description": "Backend API for the Offline-First Multilingual AI Assistant for Rural Citizens",
+  "name": "gramsahayak-backend",
+  "version": "1.0.0",
+  "description": "GramSahayak backend: offline-first multilingual assistant API for rural citizens",
   "main": "server.js",
   "private": true,
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "seed": "node scripts/seed.js",
+    "smoke": "node scripts/smoke-test.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

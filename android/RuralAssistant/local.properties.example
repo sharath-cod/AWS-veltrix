@@ -4,4 +4,4 @@
 #  - Android emulator -> your PC:        http://10.0.2.2:5000/
 #  - Physical phone via USB:             http://localhost:5000/   (run: adb reverse tcp:5000 tcp:5000)
 #  - Deployed on Render:                 https://YOUR-SERVICE.onrender.com/
-API_BASE_URL=http://10.0.2.2:5000/
+API_BASE_URL=https://aws-hackathon-63wy.onrender.com

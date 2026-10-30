@@ -1,29 +1,44 @@
-# Rural Assistant – Backend
+# GramSahayak backend
 
-Express + MongoDB (Mongoose) API for the Offline-First Multilingual AI Assistant for Rural Citizens.
+Express 4 API for the GramSahayak Android app. Node 18+.
 
-## Run locally
 ```bash
-cp .env.example .env     # then fill in MONGODB_URI
+cp .env.example .env    # MONGODB_URI optional: empty means the in-memory demo store
 npm install
-npm run dev              # or: npm start
+npm run smoke           # 51 endpoint checks, no external services needed
+npm run dev             # http://localhost:5000
 ```
 
-## Environment
-| Variable | Purpose |
+| Script | What it does |
 |---|---|
-| `MONGODB_URI` | MongoDB Atlas connection string (required in production) |
-| `PORT` | Server port (default 5000; Render sets it automatically) |
-| `NODE_ENV` | `development` or `production` |
-| `CORS_ORIGIN` | Comma-separated allowed browser origins. Empty = allow all in development, none in production |
+| `npm start` | production boot (`node server.js`) |
+| `npm run dev` | boot with `--watch` |
+| `npm run seed` | upsert the trilingual demo dataset into MongoDB (`--force` to wipe first) |
+| `npm run smoke` | in-process test of every endpoint against the in-memory store |
 
-## Endpoints
-| Route | Status |
-|---|---|
-| `GET /api/health` | Implemented |
-| `/api/knowledge`, `/api/query`, `/api/schemes`, `/api/scholarships`, `/api/reminders`, `/api/scam-check`, `/api/sync` | Placeholder (HTTP 501) |
+Layout:
 
-All responses are JSON: `{ "success": boolean, ... }`. Errors: `{ "success": false, "error": { "message", "code" } }`.
+```
+server.js            boot sequence: config -> DB -> store -> speech -> express
+src/app.js           middleware: CORS, raw audio, JSON, request log, routes, 404, errors
+src/config/          env parsing/validation, mongoose connection + status
+src/routes/          one router per resource under /api
+src/controllers/     validation and response shaping
+src/services/        retrieval, answer composition, scam rules, sms rules, speech, sigv4, http
+src/store/           mongo store and in-memory store behind one interface
+src/data/            seed-en.json, seed-i18n.js (hi/kn), seed-data.js, seed-db.js
+scripts/             seed.js, smoke-test.js
+```
 
-## Structure
-`server.js` (boot) → `src/app.js` (Express app) → `src/routes` → `src/controllers` → `src/services` → `src/models`.
+Design notes:
+
+- **Store abstraction.** `MONGODB_URI` set → Mongoose store; empty → in-memory store seeded at boot.
+  Controllers never branch on the database.
+- **No AWS SDK.** `services/aws-sigv4.js` signs requests with `node:crypto`, `services/http.js` uses
+  `node:https`. Polly, Transcribe, S3 and Bedrock are called directly, keeping the image small.
+- **Never fabricate.** If retrieval finds no entry, the API returns `grounded: false` and a fixed
+  "no verified information" message per language.
+- **Simulation is explicit.** SMS responses carry `simulated: true` and a `statusLabel`; numbers are
+  stored masked.
+
+See `../docs/API.md` for every endpoint and `../docs/DEPLOYMENT.md` for hosting.

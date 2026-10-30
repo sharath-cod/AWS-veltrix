@@ -1,7 +1,8 @@
 const router = require('express').Router();
-const { notImplemented } = require('../controllers/placeholder.controller');
+const asyncHandler = require('../utils/asyncHandler');
+const controller = require('../controllers/knowledge.controller');
 
-// Placeholder: implemented in a later phase.
-router.use(notImplemented('Knowledge'));
+router.get('/', asyncHandler(controller.list));
+router.get('/:id', asyncHandler(controller.getOne));
 
 module.exports = router;

@@ -1,7 +1,7 @@
 const router = require('express').Router();
-const { notImplemented } = require('../controllers/placeholder.controller');
+const asyncHandler = require('../utils/asyncHandler');
+const controller = require('../controllers/query.controller');
 
-// Placeholder: implemented in a later phase.
-router.use(notImplemented('Query'));
+router.post('/', asyncHandler(controller.ask));
 
 module.exports = router;

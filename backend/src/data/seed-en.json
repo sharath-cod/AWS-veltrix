@@ -1,0 +1,508 @@
+{
+  "schemes": [
+    {
+      "key": "pm-kisan",
+      "category": "agriculture",
+      "tags": [
+        "farmer",
+        "agriculture",
+        "income support",
+        "land",
+        "kisan",
+        "cultivator"
+      ],
+      "name": "PM-KISAN Samman Nidhi",
+      "description": "Income support of Rs 6,000 per year paid in three instalments of Rs 2,000 to small and marginal farmer families who own cultivable land.",
+      "eligibility": "Small and marginal farmer families with cultivable land in their name. Institutional land holders, income tax payers and government employees are excluded.",
+      "apply": "Apply through the PM-KISAN portal or the nearest Common Service Centre with Aadhaar, land records and bank account details.",
+      "source": "PM-KISAN official portal"
+    },
+    {
+      "key": "ayushman-bharat",
+      "category": "health",
+      "tags": [
+        "health",
+        "hospital",
+        "insurance",
+        "medical",
+        "treatment",
+        "ayushman"
+      ],
+      "name": "Ayushman Bharat PM-JAY",
+      "description": "Health cover of Rs 5 lakh per family per year for secondary and tertiary hospital treatment at empanelled public and private hospitals.",
+      "eligibility": "Families listed in the SECC deprivation and occupational categories, and senior citizens aged 70 and above under the expanded scheme.",
+      "apply": "Check your name on the PM-JAY portal or visit an Ayushman Arogya Mandir or Common Service Centre to get the Ayushman card made.",
+      "source": "National Health Authority, PM-JAY"
+    },
+    {
+      "key": "pmfby",
+      "category": "agriculture",
+      "tags": [
+        "crop insurance",
+        "farmer",
+        "drought",
+        "flood",
+        "crop loss",
+        "insurance"
+      ],
+      "name": "Pradhan Mantri Fasal Bima Yojana",
+      "description": "Crop insurance that pays compensation for yield loss caused by natural calamities, pests and disease. Farmer premium is 2 percent for kharif and 1.5 percent for rabi food crops.",
+      "eligibility": "All farmers growing notified crops in notified areas, including sharecroppers and tenant farmers with valid documents.",
+      "apply": "Enrol through the nearest bank, cooperative society, Common Service Centre or the national crop insurance portal before the cut-off date of the season.",
+      "source": "PMFBY official portal"
+    },
+    {
+      "key": "mgnrega",
+      "category": "employment",
+      "tags": [
+        "wage",
+        "employment",
+        "job card",
+        "rural work",
+        "labour",
+        "nrega"
+      ],
+      "name": "MGNREGA Rural Employment Guarantee",
+      "description": "Guarantees at least 100 days of unskilled wage employment per rural household per year, with wages paid directly to the worker's bank account.",
+      "eligibility": "Any rural household whose adult members are willing to do unskilled manual work. A job card is required.",
+      "apply": "Register at the Gram Panchayat office to get a job card, then submit a written demand for work. Work must be provided within 15 days.",
+      "source": "Ministry of Rural Development, MGNREGA"
+    },
+    {
+      "key": "pmay-g",
+      "category": "housing",
+      "tags": [
+        "house",
+        "housing",
+        "rural",
+        "construction",
+        "awas",
+        "home"
+      ],
+      "name": "Pradhan Mantri Awaas Yojana - Gramin",
+      "description": "Financial assistance for building a pucca house with basic amenities for houseless families and those living in kutcha or dilapidated houses in rural areas.",
+      "eligibility": "Rural families identified through the SECC housing deprivation list and verified by the Gram Sabha.",
+      "apply": "Approach the Gram Panchayat for verification and registration in the Awaas+ list, then track the sanction on the PMAY-G portal.",
+      "source": "PMAY-Gramin official portal"
+    },
+    {
+      "key": "ujjwala",
+      "category": "women",
+      "tags": [
+        "lpg",
+        "cylinder",
+        "women",
+        "cooking gas",
+        "ujjwala",
+        "fuel"
+      ],
+      "name": "Pradhan Mantri Ujjwala Yojana",
+      "description": "Free LPG connection with financial assistance for the first refill and stove for women from below poverty line households.",
+      "eligibility": "Adult women from BPL households, SC/ST households, most backward classes, forest dwellers and other identified categories without an existing LPG connection.",
+      "apply": "Apply at the nearest LPG distributor with Aadhaar, bank account and ration card, or through the Ujjwala portal.",
+      "source": "Ministry of Petroleum and Natural Gas"
+    },
+    {
+      "key": "sukanya-samriddhi",
+      "category": "women",
+      "tags": [
+        "girl child",
+        "savings",
+        "daughter",
+        "education",
+        "sukanya"
+      ],
+      "name": "Sukanya Samriddhi Yojana",
+      "description": "Small savings account for a girl child below 10 years with a high fixed interest rate and tax benefits, meant for her education and marriage expenses.",
+      "eligibility": "Parents or guardians of a girl child below 10 years, with a maximum of two accounts per family.",
+      "apply": "Open the account at any post office or authorised bank with the girl's birth certificate and guardian identity documents.",
+      "source": "Department of Posts, Small Savings"
+    },
+    {
+      "key": "mudra-loan",
+      "category": "business",
+      "tags": [
+        "loan",
+        "business",
+        "shop",
+        "credit",
+        "mudra",
+        "self employed"
+      ],
+      "name": "Pradhan Mantri MUDRA Yojana",
+      "description": "Collateral-free loans up to Rs 10 lakh for small business, shop, dairy, handicraft and service activities under the Shishu, Kishore and Tarun categories.",
+      "eligibility": "Any Indian citizen with a business plan for a non-farm income generating activity and no default with a bank.",
+      "apply": "Apply at any bank, regional rural bank, small finance bank or micro finance institution, or on the Udyam Mitra portal.",
+      "source": "MUDRA official portal"
+    },
+    {
+      "key": "pmjay-senior",
+      "category": "health",
+      "tags": [
+        "senior citizen",
+        "old age",
+        "health",
+        "70 plus",
+        "medical"
+      ],
+      "name": "Ayushman Vay Vandana Card",
+      "description": "Health cover of Rs 5 lakh per year for all senior citizens aged 70 years and above, irrespective of income.",
+      "eligibility": "Any Indian citizen aged 70 years or above with an Aadhaar-linked Ayushman card.",
+      "apply": "Generate the card on the Ayushman app or at an empanelled hospital or Common Service Centre using Aadhaar.",
+      "source": "National Health Authority"
+    },
+    {
+      "key": "ration-card",
+      "category": "food",
+      "tags": [
+        "ration",
+        "food",
+        "pds",
+        "grain",
+        "bpl",
+        "one nation one ration card"
+      ],
+      "name": "One Nation One Ration Card",
+      "description": "Allows ration card holders, especially migrant workers, to collect their entitled food grain from any fair price shop anywhere in the country.",
+      "eligibility": "Households holding a valid priority or Antyodaya ration card linked with Aadhaar and seeded with a mobile number.",
+      "apply": "Complete eKYC with the ration office or fair price shop. Migrants can also apply for a new card where they currently live.",
+      "source": "Department of Food and Public Distribution"
+    }
+  ],
+  "scholarships": [
+    {
+      "key": "nsp-pre-matric-sc",
+      "provider": "National Scholarship Portal",
+      "open": true,
+      "deadline": "2026-11-30",
+      "amount": "Up to Rs 7,000 per year",
+      "tags": [
+        "pre matric",
+        "class 9",
+        "class 10",
+        "sc st",
+        "school"
+      ],
+      "name": "Pre-Matric Scholarship for SC, ST and OBC Students",
+      "description": "Scholarship for students of class 9 and 10 from SC, ST and OBC families to reduce dropout at the school level.",
+      "eligibility": "Students studying in class 9 or 10, family income below the notified limit, and regular attendance in a recognised school.",
+      "apply": "Register on the National Scholarship Portal with Aadhaar, bank account, caste certificate and income certificate, then get it verified by the school.",
+      "source": "National Scholarship Portal"
+    },
+    {
+      "key": "nsp-post-matric",
+      "provider": "National Scholarship Portal",
+      "open": true,
+      "deadline": "2026-12-15",
+      "amount": "Maintenance allowance plus non-refundable fees",
+      "tags": [
+        "post matric",
+        "college",
+        "sc st",
+        "degree",
+        "diploma"
+      ],
+      "name": "Post-Matric Scholarship for SC Students",
+      "description": "Covers tuition and maintenance costs for SC students pursuing higher secondary, diploma, degree and post graduate courses.",
+      "eligibility": "SC students who have passed class 10 and are enrolled in a recognised course, with family income within the notified limit.",
+      "apply": "Apply on the National Scholarship Portal, upload caste, income and mark sheet documents, and submit through the institution.",
+      "source": "National Scholarship Portal"
+    },
+    {
+      "key": "pm-yasasvi",
+      "provider": "Ministry of Social Justice",
+      "open": true,
+      "deadline": "2026-11-15",
+      "amount": "Up to Rs 1,25,000 per year",
+      "tags": [
+        "obc",
+        "ebc",
+        "dnt",
+        "class 11",
+        "top class school"
+      ],
+      "name": "PM YASASVI Entrance Scholarship",
+      "description": "Scholarship for OBC, EBC and DNT students studying in class 9 and class 11 in identified top class schools.",
+      "eligibility": "OBC, EBC or DNT students with family income below Rs 2.5 lakh, selected through the YASASVI entrance test.",
+      "apply": "Apply on the YASASVI portal, appear for the entrance test and complete document verification.",
+      "source": "Ministry of Social Justice and Empowerment"
+    },
+    {
+      "key": "inspire-she",
+      "provider": "Department of Science and Technology",
+      "open": true,
+      "deadline": "2026-11-20",
+      "amount": "Rs 80,000 per year",
+      "tags": [
+        "science",
+        "bsc",
+        "merit",
+        "girl student",
+        "research",
+        "inspire"
+      ],
+      "name": "INSPIRE SHE Scholarship",
+      "description": "Merit scholarship for students in the top one percent of their board examination who take up a natural or basic science course at the BSc or BS level.",
+      "eligibility": "Students within the top one percent of the class 12 board examination, aged 17 to 22 years, admitted to a BSc or BS course in natural sciences.",
+      "apply": "Apply on the INSPIRE online portal after confirming admission to an eligible science course.",
+      "source": "INSPIRE, Department of Science and Technology"
+    },
+    {
+      "key": "karnataka-raitha-vidyanidhi",
+      "provider": "Government of Karnataka",
+      "open": true,
+      "deadline": "2026-11-25",
+      "amount": "Fee reimbursement and maintenance",
+      "tags": [
+        "karnataka",
+        "farmer children",
+        "agriculture",
+        "college",
+        "raitha"
+      ],
+      "name": "Karnataka Raitha Vidyanidhi Scholarship",
+      "description": "Scholarship for children of farmers in Karnataka studying in professional, degree and diploma courses.",
+      "eligibility": "Children of registered farmers in Karnataka with a valid farmer registration number and family income within the notified limit.",
+      "apply": "Apply on the Karnataka State Scholarship Portal with the farmer registration number, caste and income certificates and college details.",
+      "source": "Government of Karnataka, SSLC and scholarship portal"
+    },
+    {
+      "key": "karnataka-obc-post-matric",
+      "provider": "Government of Karnataka",
+      "open": true,
+      "deadline": "2026-12-05",
+      "amount": "Fee and maintenance allowance",
+      "tags": [
+        "karnataka",
+        "obc",
+        "post matric",
+        "college",
+        "state scholarship"
+      ],
+      "name": "Karnataka Post-Matric Scholarship for OBC Students",
+      "description": "State scholarship for OBC students of Karnataka pursuing post matriculation courses, covering fees and a maintenance allowance.",
+      "eligibility": "Karnataka domicile OBC students enrolled in a recognised post matric course with family income within the state limit.",
+      "apply": "Apply through the Karnataka State Scholarship Portal, upload caste, income and Aadhaar documents and submit through the college.",
+      "source": "Government of Karnataka, Backward Classes Welfare Department"
+    }
+  ],
+  "knowledge": [
+    {
+      "key": "kb-health-fever",
+      "category": "health",
+      "tags": [
+        "fever",
+        "malaria",
+        "dengue",
+        "chills",
+        "body ache",
+        "health"
+      ],
+      "question": "What should I do if I have fever for more than two days?",
+      "answer": "Drink plenty of water, rest and take paracetamol as per the dose written on the strip. If the fever lasts more than two days, or comes with chills, severe body ache, bleeding from the nose or gums, vomiting or difficulty breathing, go to the nearest Primary Health Centre or district hospital the same day and get a blood test for malaria and dengue. Do not buy antibiotics from a shop without a doctor's advice. Children under five, pregnant women and elderly people should be taken to a health worker immediately.",
+      "sources": [
+        "National Health Mission health helpline 104",
+        "Ayushman Bharat Health and Wellness Centre guidance"
+      ]
+    },
+    {
+      "key": "kb-health-diarrhoea",
+      "category": "health",
+      "tags": [
+        "diarrhoea",
+        "loose motion",
+        "vomiting",
+        "dehydration",
+        "ors",
+        "child"
+      ],
+      "question": "What is the treatment for loose motions and dehydration?",
+      "answer": "Give oral rehydration solution after every loose motion and continue giving food and breast milk to children. One packet of ORS is mixed in one litre of clean drinking water. Zinc tablets for 14 days help children recover faster. Take the person to a health centre at once if there is blood in the stool, no urine for many hours, sunken eyes, extreme weakness or continuous vomiting. Do not stop feeding the child.",
+      "sources": [
+        "National Health Mission diarrhoea management guidelines",
+        "Ministry of Health and Family Welfare"
+      ]
+    },
+    {
+      "key": "kb-health-pregnancy",
+      "category": "health",
+      "tags": [
+        "pregnancy",
+        "antenatal",
+        "delivery",
+        "asha",
+        "maternity",
+        "checkup"
+      ],
+      "question": "What checkups are needed during pregnancy?",
+      "answer": "Register with the ASHA worker or at the nearest health centre as soon as pregnancy is confirmed. At least four antenatal checkups are needed, along with iron and folic acid tablets, two doses of tetanus injection and a haemoglobin test. Delivery should be in a health facility, and the ambulance number 108 can be called free of cost. Under Janani Suraksha Yojana and PM Matru Vandana Yojana, cash assistance is available for institutional delivery and the first living child.",
+      "sources": [
+        "National Health Mission maternal health programme",
+        "Pradhan Mantri Matru Vandana Yojana"
+      ]
+    },
+    {
+      "key": "kb-health-tb",
+      "category": "health",
+      "tags": [
+        "tb",
+        "tuberculosis",
+        "cough",
+        "weight loss",
+        "night sweats",
+        "nikshay"
+      ],
+      "question": "Where can I get free treatment for tuberculosis?",
+      "answer": "Cough lasting more than two weeks, weight loss, evening fever and night sweats are signs of tuberculosis. Go to a government health centre and ask for a sputum test, which is free. TB treatment is free under the National TB Elimination Programme, and the Nikshay Poshan Yojana pays Rs 1,000 per month as nutrition support during treatment. Treatment must be completed for the full six months even if symptoms improve.",
+      "sources": [
+        "National TB Elimination Programme",
+        "Nikshay portal"
+      ]
+    },
+    {
+      "key": "kb-scheme-farmer",
+      "category": "schemes",
+      "tags": [
+        "farmer",
+        "agriculture",
+        "income support",
+        "crop insurance",
+        "kisan",
+        "loan"
+      ],
+      "question": "Which government schemes help small farmers?",
+      "answer": "Small farmers can use PM-KISAN for Rs 6,000 income support per year, PM Fasal Bima Yojana for crop insurance at a low premium, Kisan Credit Card for short term crop loans at concessional interest, and MUDRA loans for allied activities like dairy and poultry. Soil health cards are free at the nearest agriculture office. Enrolment is done through the village accountant, bank or Common Service Centre.",
+      "sources": [
+        "Ministry of Agriculture and Farmers Welfare",
+        "PM-KISAN portal"
+      ]
+    },
+    {
+      "key": "kb-scheme-ration",
+      "category": "schemes",
+      "tags": [
+        "ration",
+        "food",
+        "migrant",
+        "pds",
+        "antyodaya",
+        "grain"
+      ],
+      "question": "Can I take ration if I have moved to another district or state?",
+      "answer": "Yes. Under One Nation One Ration Card, a ration card holder can take the entitled grain from any fair price shop in the country, which helps migrant workers. Your Aadhaar must be linked and eKYC completed. If the shop refuses, call the state food department helpline or the central helpline 1967 and report the shop.",
+      "sources": [
+        "Department of Food and Public Distribution",
+        "One Nation One Ration Card scheme"
+      ]
+    },
+    {
+      "key": "kb-scholarship-documents",
+      "category": "scholarships",
+      "tags": [
+        "scholarship",
+        "documents",
+        "nsp",
+        "caste certificate",
+        "income certificate",
+        "aadhaar"
+      ],
+      "question": "Which documents are needed to apply for a scholarship?",
+      "answer": "Most scholarships need Aadhaar, a bank account in the student's own name seeded with Aadhaar, the previous year mark sheet, a caste or category certificate where applicable, an income certificate from the taluk office, a bonafide certificate from the institution and a passport size photograph. Apply on the National Scholarship Portal or the state portal before the deadline and get the application verified by the school or college.",
+      "sources": [
+        "National Scholarship Portal",
+        "Ministry of Education"
+      ]
+    },
+    {
+      "key": "kb-scholarship-status",
+      "category": "scholarships",
+      "tags": [
+        "scholarship status",
+        "payment pending",
+        "nsp status",
+        "dbT",
+        "bank"
+      ],
+      "question": "My scholarship money has not come. What should I do?",
+      "answer": "Check the application status on the National Scholarship Portal or state portal. The usual reasons for delay are incomplete verification by the institution, a bank account not seeded with Aadhaar, name mismatch between Aadhaar and the bank account, or the application still pending at the district level. Correct the details, ask the college to verify, and follow up with the district scholarship officer. Payments are made directly to the bank account through DBT.",
+      "sources": [
+        "National Scholarship Portal help",
+        "DBT Bharat"
+      ]
+    },
+    {
+      "key": "kb-scam-otp",
+      "category": "scam",
+      "tags": [
+        "otp",
+        "fraud",
+        "bank",
+        "kyc",
+        "call",
+        "scam",
+        "upi"
+      ],
+      "question": "Someone is asking for my OTP or bank details on the phone. Is it a fraud?",
+      "answer": "Yes, it is a fraud. No bank, government office or company will ever ask for an OTP, ATM PIN, CVV, UPI PIN or password on a call, message or link. Never share the OTP, never install a screen sharing app on a caller's request, and never approve a UPI collect request you did not start. If money has already been taken, call the cyber crime helpline 1930 immediately and report on cybercrime.gov.in within the golden hour, and inform the bank to freeze the account.",
+      "sources": [
+        "Cyber Crime Coordination Centre, Ministry of Home Affairs",
+        "RBI awareness on digital payment fraud"
+      ]
+    },
+    {
+      "key": "kb-scam-lottery",
+      "category": "scam",
+      "tags": [
+        "lottery",
+        "prize",
+        "lucky draw",
+        "whatsapp",
+        "link",
+        "fraud"
+      ],
+      "question": "I got a message saying I won a lottery. Should I pay the processing fee?",
+      "answer": "Do not pay anything. A genuine lottery or government scheme never asks for a processing fee, tax or courier charge in advance, and you cannot win a draw you never entered. Do not click the link, do not share bank details and do not send money. Report the number on the Chakshu portal or cybercrime.gov.in, and block the sender.",
+      "sources": [
+        "Sanchar Saathi Chakshu portal",
+        "Cyber Crime Coordination Centre"
+      ]
+    },
+    {
+      "key": "kb-general-helplines",
+      "category": "general",
+      "tags": [
+        "helpline",
+        "emergency",
+        "108",
+        "104",
+        "1930",
+        "1967",
+        "number"
+      ],
+      "question": "Which helpline numbers can I call for help?",
+      "answer": "Ambulance 108, health advice 104, police 100 or 112, women helpline 181, child helpline 1098, cyber fraud 1930, ration complaint 1967, farmer helpline 1800-180-1551 and the national emergency number 112. All these are toll free and work from any mobile phone.",
+      "sources": [
+        "Government of India citizen helpline directory"
+      ]
+    },
+    {
+      "key": "kb-general-documents",
+      "category": "general",
+      "tags": [
+        "aadhaar",
+        "certificate",
+        "caste",
+        "income",
+        "ration card",
+        "documents",
+        "seva sindhu"
+      ],
+      "question": "How do I get an income or caste certificate?",
+      "answer": "Apply at the nearest Nadakacheri or Common Service Centre, or online on the state e-governance portal such as Seva Sindhu in Karnataka. You need Aadhaar, a ration card, a photograph, an address proof and, for a caste certificate, the father's caste certificate where available. Certificates are normally issued within 15 to 30 days, and most states issue them digitally signed.",
+      "sources": [
+        "Karnataka Seva Sindhu",
+        "Common Service Centre scheme"
+      ]
+    }
+  ]
+}

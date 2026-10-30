@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ग्राम सहायक</string>
+
+    <string name="tab_home">होम</string>
+    <string name="tab_ask">पूछें</string>
+    <string name="tab_schemes">योजनाएँ</string>
+    <string name="tab_reminders">रिमाइंडर</string>
+    <string name="tab_settings">सेटिंग</string>
+
+    <string name="title_home">होम</string>
+    <string name="title_assistant">सहायक</string>
+    <string name="title_health">स्वास्थ्य</string>
+    <string name="title_schemes">सरकारी योजनाएँ</string>
+    <string name="title_scholarships">छात्रवृत्ति</string>
+    <string name="title_reminders">रिमाइंडर</string>
+    <string name="title_scam">धोखाधड़ी जाँच</string>
+    <string name="title_settings">सेटिंग्स</string>
+
+    <string name="home_greeting">मैं कैसे मदद करूँ?</string>
+    <string name="language_title">अपनी भाषा चुनें</string>
+    <string name="language_continue">आगे बढ़ें</string>
+    <string name="status_online">ऑनलाइन</string>
+    <string name="status_offline">ऑफ़लाइन</string>
+    <string name="offline_banner">इंटरनेट नहीं है। सहेजी गई जानकारी काम करेगी।</string>
+    <string name="coming_soon">जल्द आ रहा है</string>
+    <string name="back">वापस</string>
+
+    <string name="msg_assistant">अपना सवाल आवाज़ या लिखकर पूछें</string>
+    <string name="msg_health">भरोसेमंद स्वास्थ्य जानकारी यहाँ दिखेगी</string>
+    <string name="msg_schemes">सरकारी योजनाएँ यहाँ दिखेंगी</string>
+    <string name="msg_scholarships">छात्रवृत्तियाँ यहाँ दिखेंगी</string>
+    <string name="msg_reminders">आपके रिमाइंडर यहाँ दिखेंगे</string>
+    <string name="msg_scam">संदेश और कॉल में धोखाधड़ी जाँचें</string>
+
+    <string name="settings_language">भाषा</string>
+    <string name="settings_large_text">बड़े अक्षर</string>
+    <string name="settings_voice">आवाज़ में उत्तर</string>
+    <string name="title_sms">एसएमएस केंद्र</string>
+    <string name="title_virtual_call">वर्चुअल कॉल</string>
+</resources>

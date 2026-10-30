@@ -1,7 +1,10 @@
 const router = require('express').Router();
-const { notImplemented } = require('../controllers/placeholder.controller');
+const asyncHandler = require('../utils/asyncHandler');
+const controller = require('../controllers/schemes.controller');
 
-// Placeholder: implemented in a later phase.
-router.use(notImplemented('Schemes'));
+// /check must be registered before /:id so it is not treated as an id
+router.post('/check', asyncHandler(controller.check));
+router.get('/', asyncHandler(controller.list));
+router.get('/:id', asyncHandler(controller.getOne));
 
 module.exports = router;

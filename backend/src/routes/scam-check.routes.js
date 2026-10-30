@@ -1,7 +1,7 @@
 const router = require('express').Router();
-const { notImplemented } = require('../controllers/placeholder.controller');
+const asyncHandler = require('../utils/asyncHandler');
+const controller = require('../controllers/scamCheck.controller');
 
-// Placeholder: implemented in a later phase.
-router.use(notImplemented('Scam check'));
+router.post('/', asyncHandler(controller.check));
 
 module.exports = router;
