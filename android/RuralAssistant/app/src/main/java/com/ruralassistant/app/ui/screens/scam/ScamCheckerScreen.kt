@@ -1,17 +1,13 @@
 package com.ruralassistant.app.ui.screens.scam
-
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Security
 import androidx.compose.runtime.Composable
-import com.ruralassistant.app.R
-import com.ruralassistant.app.ui.components.PlaceholderScreen
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.ruralassistant.app.ui.AppViewModelProvider
+import com.ruralassistant.app.ui.screens.settings.SettingsViewModel
+import com.ruralassistant.app.ui.screens.features.ScamFeatureScreen
 
 @Composable
-fun ScamCheckerScreen(onBack: () -> Unit) {
-    PlaceholderScreen(
-        titleRes = R.string.title_scam,
-        messageRes = R.string.msg_scam,
-        icon = Icons.Filled.Security,
-        onBack = onBack,
-    )
+fun ScamCheckerScreen(onBack: () -> Unit, viewModel: SettingsViewModel = viewModel(factory = AppViewModelProvider.Factory)) {
+    val prefs = viewModel.prefs.collectAsStateWithLifecycle().value
+    ScamFeatureScreen(prefs.language)
 }

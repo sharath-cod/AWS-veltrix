@@ -20,6 +20,8 @@ sealed class Screen(val route: String) {
     data object Reminders : Screen("reminders")
     data object ScamChecker : Screen("scam_checker")
     data object Settings : Screen("settings")
+    data object Sms : Screen("sms")
+    data object VirtualCall : Screen("virtual_call")
 }
 
 data class BottomNavItem(

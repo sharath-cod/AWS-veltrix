@@ -36,4 +36,6 @@
     <string name="settings_language">ಭಾಷೆ</string>
     <string name="settings_large_text">ದೊಡ್ಡ ಅಕ್ಷರಗಳು</string>
     <string name="settings_voice">ಧ್ವನಿ ಉತ್ತರಗಳು</string>
+    <string name="title_sms">SMS ಕೇಂದ್ರ</string>
+    <string name="title_virtual_call">ವರ್ಚುವಲ್ ಕರೆ</string>
 </resources>

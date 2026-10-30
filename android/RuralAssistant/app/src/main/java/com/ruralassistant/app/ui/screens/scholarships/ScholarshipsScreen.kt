@@ -1,17 +1,13 @@
 package com.ruralassistant.app.ui.screens.scholarships
-
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.School
 import androidx.compose.runtime.Composable
-import com.ruralassistant.app.R
-import com.ruralassistant.app.ui.components.PlaceholderScreen
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.ruralassistant.app.ui.AppViewModelProvider
+import com.ruralassistant.app.ui.screens.settings.SettingsViewModel
+import com.ruralassistant.app.ui.screens.features.ScholarshipsFeatureScreen
 
 @Composable
-fun ScholarshipsScreen(onBack: () -> Unit) {
-    PlaceholderScreen(
-        titleRes = R.string.title_scholarships,
-        messageRes = R.string.msg_scholarships,
-        icon = Icons.Filled.School,
-        onBack = onBack,
-    )
+fun ScholarshipsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = viewModel(factory = AppViewModelProvider.Factory)) {
+    val prefs = viewModel.prefs.collectAsStateWithLifecycle().value
+    ScholarshipsFeatureScreen(prefs.language)
 }

@@ -18,6 +18,8 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Sms
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,6 +45,8 @@ private val homeTiles = listOf(
     HomeTileData(Screen.Scholarships, R.string.title_scholarships, Icons.Filled.School),
     HomeTileData(Screen.Reminders, R.string.title_reminders, Icons.Filled.NotificationsActive),
     HomeTileData(Screen.ScamChecker, R.string.title_scam, Icons.Filled.Security),
+    HomeTileData(Screen.Sms, R.string.title_sms, Icons.Filled.Sms),
+    HomeTileData(Screen.VirtualCall, R.string.title_virtual_call, Icons.Filled.Call),
 )
 
 @Composable

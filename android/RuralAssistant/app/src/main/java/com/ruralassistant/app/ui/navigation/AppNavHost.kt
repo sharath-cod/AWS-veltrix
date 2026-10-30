@@ -14,6 +14,12 @@ import com.ruralassistant.app.ui.screens.scam.ScamCheckerScreen
 import com.ruralassistant.app.ui.screens.scholarships.ScholarshipsScreen
 import com.ruralassistant.app.ui.screens.schemes.SchemesScreen
 import com.ruralassistant.app.ui.screens.settings.SettingsScreen
+import com.ruralassistant.app.ui.screens.sms.SmsScreen
+import com.ruralassistant.app.ui.screens.call.VirtualCallScreen
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.ruralassistant.app.ui.AppViewModelProvider
+import com.ruralassistant.app.ui.screens.settings.SettingsViewModel
 
 /** Tab navigation: keeps Home as the single root so system Back goes tab -> Home -> exit. */
 fun NavHostController.navigateToTab(route: String) {
@@ -51,5 +57,11 @@ fun AppNavHost(
         composable(Screen.Reminders.route) { RemindersScreen() }
         composable(Screen.ScamChecker.route) { ScamCheckerScreen(onBack = { navController.popBackStack() }) }
         composable(Screen.Settings.route) { SettingsScreen(isOnline = isOnline) }
+        composable(Screen.Sms.route) { SmsScreen() }
+        composable(Screen.VirtualCall.route) {
+            val settings: SettingsViewModel = viewModel(factory = AppViewModelProvider.Factory)
+            val prefs = settings.prefs.collectAsStateWithLifecycle().value
+            VirtualCallScreen(prefs.language)
+        }
     }
 }
