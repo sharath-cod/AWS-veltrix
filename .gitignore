@@ -1,16 +1,21 @@
-# Secrets
+# Secrets and local config
 .env
 .env.*
 !.env.example
 local.properties
+*.jks
+*.keystore
+keystore.properties
 
 # Node
 node_modules/
 npm-debug.log*
+*.log
 
 # Android / Gradle
 .gradle/
 build/
+app/build/
 *.iml
 .idea/
 captures/
@@ -21,3 +26,7 @@ captures/
 
 # OS
 .DS_Store
+Thumbs.db
+
+# Kotlin compiler sessions
+.kotlin/

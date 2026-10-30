@@ -38,4 +38,21 @@
     <string name="settings_voice">आवाज़ में उत्तर</string>
     <string name="title_sms">एसएमएस केंद्र</string>
     <string name="title_virtual_call">वर्चुअल कॉल</string>
+    <string name="call_now">ग्रामसहायक को कॉल करें</string>
+    <string name="call_subtitle">बोलने के लिए टैप करें — सहायक आपकी भाषा में जवाब देगा</string>
+    <string name="call_connecting">ग्रामसहायक को कॉल हो रही है…</string>
+    <string name="call_connected">जुड़ गया</string>
+    <string name="call_pickup">ग्रामसहायक ने फोन उठाया</string>
+    <string name="call_listening">सुन रहा हूँ…</string>
+    <string name="call_thinking">जवाब तैयार हो रहा है…</string>
+    <string name="call_end">कॉल बंद करें</string>
+    <string name="call_ended">कॉल समाप्त</string>
+    <string name="call_mute">म्यूट</string>
+    <string name="call_unmute">अनम्यूट</string>
+    <string name="call_say">बोलिए</string>
+    <string name="call_you">आप</string>
+    <string name="call_ai">ग्रामसहायक</string>
+    <string name="call_emergency">इसमें तुरंत मदद चाहिए</string>
+    <string name="call_dial">कॉल करें</string>
+    <string name="call_retry">फिर बोलने के लिए टैप करें</string>
 </resources>

@@ -17,6 +17,7 @@ const STOPWORDS = new Set([
   'for', 'of', 'to', 'in', 'on', 'at', 'and', 'or', 'if', 'it', 'this', 'that', 'there', 'be',
   'get', 'got', 'have', 'has', 'about', 'with', 'from', 'need', 'want', 'any', 'please',
   'tell', 'know', 'also', 'than', 'then', 'some', 'much', 'many', 'more', 'very', 'not',
+  'cannot', 'cant', 'feel', 'feeling', 'since', 'yesterday', 'today', 'badly', 'really',
   // hindi (romanised and devanagari)
   'kya', 'kaise', 'kaisa', 'hai', 'hain', 'ka', 'ki', 'ke', 'ko', 'me', 'mein', 'aur', 'ya',
   'kar', 'karna', 'kare', 'kaun', 'kab', 'kahan', 'liye', 'chahiye', 'milta', 'mil', 'mera', 'meri',

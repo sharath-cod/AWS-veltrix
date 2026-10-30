@@ -63,6 +63,26 @@ interface FeatureApi {
     @GET("api/sms")
     suspend fun smsHistory(@Header("X-Device-Id") deviceId: String): JsonObject
 
+    /** The call: the AI picks up and answers in the caller's language. */
+    @POST("api/calls")
+    suspend fun startCall(@Header("X-Device-Id") deviceId: String, @Body body: JsonObject): JsonObject
+
+    /**
+     * One call turn. Send the recognised words as ?transcript=, or the recording
+     * as the raw body when the phone has no speech recogniser.
+     */
+    @Headers("Content-Type: audio/mp4")
+    @POST("api/calls/{id}/turns")
+    suspend fun callTurn(
+        @Header("X-Device-Id") deviceId: String,
+        @Path("id") id: String,
+        @Query("transcript") transcript: String? = null,
+        @Body audio: RequestBody,
+    ): JsonObject
+
+    @DELETE("api/calls/{id}")
+    suspend fun endCall(@Header("X-Device-Id") deviceId: String, @Path("id") id: String): JsonObject
+
     @POST("api/voice-sessions")
     suspend fun startVoiceSession(@Header("X-Device-Id") deviceId: String, @Body body: JsonObject): JsonObject
     /**

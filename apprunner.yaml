@@ -1,0 +1,10 @@
+# AWS App Runner source-based deploy (optional). With an ECR image, configure the
+# service in the console instead and use the commands in docs/DEPLOYMENT.md.
+version: 1.0
+runtime: docker
+build:
+  command: docker build -t gramsahayak-api ./backend
+run:
+  command: docker run -p 5000:5000 gramsahayak-api
+  network:
+    port: 5000

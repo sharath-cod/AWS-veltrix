@@ -8,6 +8,7 @@ npm install
 npm run smoke           # 51 endpoint checks
 npm run contract        # 131 checks that replay every screen in the app
 npm run hurdles         # 89 checks for the stale-knowledge / mixed-language / read-back hurdle
+npm run call            # 66 checks for the AI call: pickup, languages, 108 safety redirect
 npm run dev             # http://localhost:5000
 ```
 
@@ -19,7 +20,8 @@ npm run dev             # http://localhost:5000
 | `npm run smoke` | in-process test of every endpoint against the in-memory store |
 | `npm run contract` | replays every Android screen call, all three languages, plus a stand-in speech provider |
 | `npm run hurdles` | the three hurdle hints: change feed, mixed-language parsing, read-back gate |
-| `npm run verify` | smoke + contract + hurdles |
+| `npm run call` | the call simulation: greeting, conversation, knowledge answers, medical redirects |
+| `npm run verify` | smoke + contract + hurdles + call |
 | `npm run touch -- <id>` | demo helper: mark one entry as re-checked so it appears in the change feed |
 
 ## What answers questions
@@ -46,6 +48,27 @@ madbeku") and still reach the right entry, because `services/retrieval.js` maps
 those surface forms onto shared concepts. A question asked on the wrong screen
 (for example a scholarship question inside the Health screen) falls back to the
 whole knowledge base instead of refusing.
+
+## The AI call
+
+One tap on the call logo and the assistant picks up (`POST /api/calls`), greets the
+caller in their language, and answers whatever they ask, turn by turn
+(`POST /api/calls/{id}/turns`). Details in `../docs/AI_CALL.md`.
+
+- **Any language.** The greeting, the "I did not hear you", the 108 redirect and the
+  goodbye exist in 11 languages (en, hi, kn, ta, te, bn, mr, gu, ml, pa, ur). Full
+  answers exist in English, Hindi and Kannada; for the rest the question is translated
+  and the answer translated back when `SARVAM_API_KEY` is set, and otherwise the answer
+  comes in English with a sentence in the caller's language saying so.
+- **Medical safety.** Red flags — chest pain, breathlessness, heavy bleeding, fits,
+  snake bite, poisoning, stroke, serious burns, accidents, thoughts of self-harm — are
+  never answered as a chat reply: the call says call **108** (or **14416** for a mental
+  health crisis), gives the safest first thing to do, and stops. A medical question with
+  no verified answer, or a question about how much medicine to take, goes to **104 / 108**
+  instead of a guess.
+- **Conversation.** "hello", "who are you", "what can you do", "thank you", "bye" are
+  answered as conversation, not as a failed lookup — and a greeting followed by a
+  question is still treated as a question.
 
 ## Stale knowledge and read-back
 
@@ -87,10 +110,11 @@ src/app.js           middleware: CORS, raw audio, JSON, request log, routes, 404
 src/config/          env parsing/validation, mongoose connection + status
 src/routes/          one router per resource under /api
 src/controllers/     validation and response shaping
-src/services/        retrieval, answer, freshness, numbers, confirmations, scam, sms, speech, stt, sigv4, http
+src/services/        retrieval, answer, freshness, numbers, confirmations, call, triage, conversation,
+                     translate, scam, sms, speech, stt, sigv4, http
 src/store/           mongo store and in-memory store behind one interface
 src/data/            seed-en.json, seed-i18n.js, knowledge-extra-1/2.js, facts.js, seed-data.js, seed-db.js
-scripts/             seed.js, smoke-test.js, contract-test.js, hurdle-test.js, touch-entry.js
+scripts/             seed.js, smoke-test.js, contract-test.js, hurdle-test.js, call-test.js, touch-entry.js
 ```
 
 Design notes:

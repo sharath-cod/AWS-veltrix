@@ -192,9 +192,20 @@ async function baseAnswer({ store, config, speech }, { question, language = 'en'
     notices.push(`Nothing matched in the "${category}" section, so the whole knowledge base was searched.`);
   }
 
+  // Does the question talk about the same thing as the entry it matched? For a
+  // medical question this decides between answering and redirecting to 108/104,
+  // so a spurious keyword match cannot become medical advice.
+  const asked = new Set(detectConcepts(question));
+  const entryConcepts = new Set(detectConcepts([
+    ...Object.values(best.question || {}),
+    ...(best.tags || []),
+  ].join(' ')));
+  const conceptOverlap = [...asked].some((c) => entryConcepts.has(c));
+
   return {
     entry: best,
     result: {
+      conceptOverlap,
       answer,
       answerExtractive: extractive,
       grounded: true,
