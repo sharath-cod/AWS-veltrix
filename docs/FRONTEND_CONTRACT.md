@@ -30,7 +30,7 @@ npm run smoke        # 51 endpoint checks
 | Scholarships | `GET /api/scholarships?q=&open=true` | `count`, `data[].{id,name,description}` |
 | Scholarships → save / unsave | `POST /api/scholarships/saved`, `DELETE /api/scholarships/saved/{id}` | `data.saved`, `data.removed` |
 | Scholarships → saved list | `GET /api/scholarships/saved` | `data[].id` |
-| Reminders | `GET/POST/PUT/DELETE /api/reminders` | `data[].{id,title,remindAt,completed}` |
+| Reminders | `GET/POST/PUT/DELETE /api/reminders` | `data[].{id,title,remindAt,type,repeat,notes,completed}` — the add dialog sends `{title, type, repeat, remindAt, notes?, clientId}` |
 | Scam checker | `POST /api/scam-check` | `data.riskLevel`, `data.reasons[].text`, `data.advice` |
 | SMS centre | `POST /api/sms/preview`, `POST /api/sms/send`, `GET /api/sms` | `data.allowed`, `data.statusLabel`, `data.simulated`, `data.toMasked`, history rows |
 | Virtual call → start | `POST /api/voice-sessions` | `data.id`, `data.canTranscribe`, `data.speech` |

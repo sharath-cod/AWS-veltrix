@@ -131,3 +131,20 @@ a follow-up continues instead of repeating, `/api/transcribe` turns a clip into 
 - The Android code is not compiled in this environment (no SDK); the Kotlin changes are in
   ten files and follow the existing patterns, and the API they call is covered by the 358
   server-side checks.
+
+---
+
+## 3. Hindi / Kannada voice failing while English works (online)
+
+**Cause:** `SpeechInput.create()` used the phone's *on-device* recogniser whenever the phone had one,
+even with internet. That recogniser only has the language packs installed on the phone (often just
+English), so Hindi/Kannada returned `ERROR_LANGUAGE_NOT_SUPPORTED/UNAVAILABLE` and the app showed
+"voice recognition not available on this phone".
+
+**Fix:**
+- `SpeechInput.create(context, online)`: online -> Google's cloud recogniser (all Indian languages, no
+  download); offline -> on-device recogniser (needs the language pack).
+- A fresh recogniser is created for each question/turn, so going online/offline is picked up.
+- If an online attempt still reports a language problem, the Ask screen opens Google's voice-typing
+  dialog as a last resort and puts the result in the question box.
+- `AndroidManifest.xml`: added `<queries>` so Android 11+ lets the app see the speech services.

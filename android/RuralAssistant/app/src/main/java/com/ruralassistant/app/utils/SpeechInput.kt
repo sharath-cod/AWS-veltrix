@@ -1,9 +1,11 @@
 package com.ruralassistant.app.utils
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
+import android.speech.RecognitionService
 import android.speech.SpeechRecognizer
 
 /**
@@ -39,13 +41,26 @@ object SpeechInput {
         else -> "en-IN"
     }
 
+    private const val GOOGLE_SERVICE =
+        "com.google.android.googlequicksearchbox/" +
+            "com.google.android.voicesearch.serviceapi.GoogleRecognitionService"
+
     /**
-     * A recogniser for this phone: on-device when the OS supports it (so it
-     * keeps working offline), otherwise the normal one.
+     * A recogniser for this phone.
+     *
+     * ONLINE  -> the normal (cloud) recogniser. It knows Hindi, Kannada and the
+     *            other Indian languages without any download. We name Google's
+     *            service explicitly, because on some phones (Xiaomi, Realme...)
+     *            the default service is a local one that only has English.
+     * OFFLINE -> the on-device recogniser (Android 12+), which needs the
+     *            language pack downloaded.
+     *
+     * The old code used the on-device recogniser even when online. On a phone
+     * with only the English pack, Hindi/Kannada then failed with "language not
+     * supported" while English worked.
      */
-    fun create(context: Context): SpeechRecognizer? {
-        if (!SpeechRecognizer.isRecognitionAvailable(context)) return null
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    fun create(context: Context, online: Boolean): SpeechRecognizer? {
+        if (!online && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             try {
                 if (SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) {
                     return SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
@@ -54,11 +69,31 @@ object SpeechInput {
                 // Fall through to the standard recogniser.
             }
         }
+        if (online) {
+            try {
+                val google = ComponentName.unflattenFromString(GOOGLE_SERVICE)
+                val installed = google != null && context.packageManager
+                    .queryIntentServices(
+                        Intent(RecognitionService.SERVICE_INTERFACE).setPackage(google.packageName), 0
+                    ).isNotEmpty()
+                if (installed) return SpeechRecognizer.createSpeechRecognizer(context, google)
+            } catch (_: Exception) {
+                // Fall through to the phone's default recogniser.
+            }
+        }
+        if (!SpeechRecognizer.isRecognitionAvailable(context)) return null
         return try {
             SpeechRecognizer.createSpeechRecognizer(context)
         } catch (_: Exception) {
             null
         }
+    }
+
+    /** Can this phone do speech recognition at all (cloud or on-device)? */
+    fun isAvailable(context: Context): Boolean {
+        if (SpeechRecognizer.isRecognitionAvailable(context)) return true
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            runCatching { SpeechRecognizer.isOnDeviceRecognitionAvailable(context) }.getOrDefault(false)
     }
 
     /** Is this error about the language pack rather than the network? */

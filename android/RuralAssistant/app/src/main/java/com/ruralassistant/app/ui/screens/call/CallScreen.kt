@@ -110,8 +110,9 @@ fun CallScreen(
     var canAskMore by remember { mutableStateOf(false) }
 
     val tts = remember { TextToSpeech(context) {} }
-    // On-device recogniser where the phone has one: it works with no network.
-    val recognizer = remember { SpeechInput.create(context) }
+    // Fresh recogniser per turn: cloud when online, on-device only when offline.
+    val recognizerState = remember { mutableStateOf<SpeechRecognizer?>(null) }
+    val micAvailable = remember { SpeechInput.isAvailable(context) }
     val recorder = remember { mutableStateOf<MediaRecorder?>(null) }
     val recordingFile = remember { mutableStateOf<File?>(null) }
     val afterSpeak = remember { mutableStateOf<(() -> Unit)?>(null) }
@@ -144,7 +145,7 @@ fun CallScreen(
         onDispose {
             try { tts.stop() } catch (_: Exception) {}
             tts.shutdown()
-            recognizer?.destroy()
+            try { recognizerState.value?.destroy() } catch (_: Exception) {}
             try { recorder.value?.release() } catch (_: Exception) {}
         }
     }
@@ -309,11 +310,14 @@ fun CallScreen(
     // -------------------------------------------------------------- listening
     fun startListening() {
         if (muted || phase == "ended") return
+        val offline = !ConnectivityMonitor(context).currentlyOnline()
+        try { recognizerState.value?.destroy() } catch (_: Exception) {}
+        val recognizer = if (micAvailable) SpeechInput.create(context, online = !offline) else null
+        recognizerState.value = recognizer
         if (recognizer == null) {
             if (mode == "server") startRecording() else status = "Type your question below."
             return
         }
-        val offline = !ConnectivityMonitor(context).currentlyOnline()
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, SpeechInput.languageTag(answerLanguage))
@@ -581,7 +585,7 @@ fun CallScreen(
                     onClick = {
                         muted = !muted
                         if (muted) {
-                            try { recognizer?.cancel() } catch (_: Exception) {}
+                            try { recognizerState.value?.cancel() } catch (_: Exception) {}
                             if (recording) stopRecordingAndSend()
                             listening = false
                             status = context.getString(R.string.call_mute)
@@ -599,7 +603,7 @@ fun CallScreen(
                 Button(
                     onClick = {
                         when {
-                            listening -> try { recognizer?.stopListening() } catch (_: Exception) {}
+                            listening -> try { recognizerState.value?.stopListening() } catch (_: Exception) {}
                             recording -> stopRecordingAndSend()
                             else -> listenRef.value?.invoke()
                         }

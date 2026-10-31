@@ -180,13 +180,14 @@ fun AssistantFeatureScreen(language: AppLanguage, category: String = "general", 
     val noteFile = remember { mutableStateOf<File?>(null) }
     val pack by rememberPackStatus()
     val tts = remember { TextToSpeech(context) {} }
-    // On Android 12+ this is the on-device recogniser when the phone has one, so
-    // voice input keeps working with no network (given the language pack).
-    val recognizer = remember { SpeechInput.create(context) }
+    // A fresh recogniser is made for every question: the online (cloud) one when
+    // there is internet, the on-device one only when offline. See SpeechInput.create.
+    val recognizerState = remember { mutableStateOf<SpeechRecognizer?>(null) }
+    val micAvailable = remember { SpeechInput.isAvailable(context) }
     DisposableEffect(Unit) {
         onDispose {
             tts.shutdown()
-            recognizer?.destroy()
+            try { recognizerState.value?.destroy() } catch (_: Exception) {}
             try { noteRecorder.value?.release() } catch (_: Exception) {}
         }
     }
@@ -352,12 +353,28 @@ fun AssistantFeatureScreen(language: AppLanguage, category: String = "general", 
         }
     }
 
+    // Last resort when the in-app recogniser has no Hindi/Kannada: Google's own
+    // voice-typing dialog, which supports them whenever the phone is online.
+    val dialogResult = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
+        listening = false
+        val heard = res.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull().orEmpty()
+        if (heard.isNotBlank()) {
+            voiceProblem = false
+            languageProblem = false
+            status = ""
+            if (micMode == "confirm") resolveConfirmation(null, heard) else question = heard
+        }
+    }
+
     val speechPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (!granted) {
             status = "Microphone permission is required for voice input."
             return@rememberLauncherForActivityResult
         }
         val offline = !ConnectivityMonitor(context).currentlyOnline()
+        try { recognizerState.value?.destroy() } catch (_: Exception) {}
+        val recognizer = SpeechInput.create(context, online = !offline)
+        recognizerState.value = recognizer
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, SpeechInput.languageTag(language.code))
@@ -374,6 +391,16 @@ fun AssistantFeatureScreen(language: AppLanguage, category: String = "general", 
             override fun onEndOfSpeech() { listening = false }
             override fun onError(error: Int) {
                 listening = false
+                // Online but this recogniser lacks the language: use Google's
+                // voice-typing dialog instead of giving up.
+                if (!offline && SpeechInput.isLanguageProblem(error)) {
+                    val dialog = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                        putExtra(RecognizerIntent.EXTRA_LANGUAGE, SpeechInput.languageTag(language.code))
+                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, SpeechInput.languageTag(language.code))
+                    }
+                    if (runCatching { dialogResult.launch(dialog) }.isSuccess) return
+                }
                 // Say what actually went wrong, in the user's language: no
                 // network, or the Hindi/Kannada voice pack is not installed.
                 languageProblem = SpeechInput.isLanguageProblem(error)
@@ -396,7 +423,7 @@ fun AssistantFeatureScreen(language: AppLanguage, category: String = "general", 
             override fun onPartialResults(partialResults: android.os.Bundle?) {}
             override fun onEvent(eventType: Int, params: android.os.Bundle?) {}
         })
-        recognizer?.startListening(intent)
+        try { recognizer?.startListening(intent) } catch (e: Exception) { listening = false; status = e.message ?: "Voice input failed." }
     }
 
     /** Keep the question as audio when it cannot be recognised now. */
@@ -471,7 +498,7 @@ fun AssistantFeatureScreen(language: AppLanguage, category: String = "general", 
         )
         OutlinedButton(
             modifier = Modifier.fillMaxWidth(),
-            enabled = recognizer != null && !loading && !listening,
+            enabled = micAvailable && !loading && !listening,
             onClick = { startListening("question") },
         ) { Text(if (listening && micMode == "question") "Listening…" else "Speak your question") }
 

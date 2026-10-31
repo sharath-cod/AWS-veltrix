@@ -32,7 +32,7 @@ host must use HTTPS or be added to the network security config.
 | Health | same screen, `category=health` | `POST /api/query` |
 | Schemes | `SchemesFeatureScreen` | `GET /api/schemes`, `POST /api/schemes/check`; offline it falls back to the downloaded pack in Room |
 | Scholarships | `ScholarshipsFeatureScreen` | `GET /api/scholarships`, `GET/POST /api/scholarships/saved`, `DELETE /api/scholarships/saved/{id}` |
-| Reminders | `RemindersFeatureScreen` | `GET/POST/PUT/DELETE /api/reminders` |
+| Reminders | `RemindersScreen` | `GET/POST/PUT/DELETE /api/reminders`, Room mirror, `pending_sync` when offline |
 | Scam checker | `ScamFeatureScreen` | `POST /api/scam-check` |
 | SMS Centre | `SmsFeatureScreen` | `GET /api/sms`, `POST /api/sms/send` |
 | Virtual call | `ui/screens/call/VirtualCallScreen.kt` | `POST /api/voice-sessions`, `POST /api/voice-sessions/{id}/turns` (with `confirm=true` and, after a read-back, `confirmationToken`), `DELETE /api/voice-sessions/{id}` |
@@ -110,4 +110,13 @@ and Play Store notes, are in `docs/DEPLOYMENT.md`.
   The backend accepts `age`, `gender`, `annualIncome`, `landHoldingHa`, `housing`, `rural`,
   `girlChildUnder10` and `wantsBusiness` if you add a profile form.
 - SMS is simulated end to end. Do not connect a real gateway without consent capture and rate limits.
-- Reminder notifications are not scheduled on the device yet; reminders live in the list and in sync.
+- Reminders are added and edited through a pop-up: a title, a type (health, medicine, appointment,
+  scheme, scholarship, other), a date and a time picked from the calendar and clock dials, an optional
+  repeat rule and a note. The ISO 8601 string the API needs is built by the app — the user never types
+  a date. Tapping an existing reminder opens the same pop-up to change it, and the card's tick marks
+  it done.
+- The reminder list is stored in Room and mirrored to the server, so it opens instantly and still works
+  with no network. A reminder created offline goes into the `pending_sync` outbox and is sent by
+  `SyncWorker` when the connection returns; it shows "waiting to sync" until then.
+- Reminder *notifications* are not scheduled on the device yet: a reminder lives in the list and in
+  sync, but the phone does not ring an alarm for it.
