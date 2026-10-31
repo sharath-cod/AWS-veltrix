@@ -39,6 +39,9 @@ function loadConfig() {
     sarvamApiKey: (process.env.SARVAM_API_KEY || '').trim(),
     sarvamSttUrl: (process.env.SARVAM_STT_URL || 'https://api.sarvam.ai/speech-to-text').trim(),
     sarvamSttModel: (process.env.SARVAM_STT_MODEL || 'saarika:v2.5').trim(),
+    // Translation for callers whose language has no content pack
+    translateUrl: (process.env.SARVAM_TRANSLATE_URL || 'https://api.sarvam.ai/translate').trim(),
+    translateModel: (process.env.SARVAM_TRANSLATE_MODEL || 'mayura:v1').trim(),
 
     // Any OpenAI-compatible /audio/transcriptions endpoint (Whisper, Groq, self-hosted)
     sttHttpUrl: (process.env.STT_HTTP_URL || '').trim(),

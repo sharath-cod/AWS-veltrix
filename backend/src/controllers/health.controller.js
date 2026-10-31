@@ -55,6 +55,8 @@ exports.getHealth = async (req, res) => {
       scamCheck: true,
       smsSimulation: Boolean(config && config.allowSmsSimulation),
       voice: canTranscribe,
+      call: true,
+      transcribe: Boolean(speech && speech.canTranscribe && speech.canTranscribe()),
       speechToText: canTranscribe,
       textToSpeech: Boolean(speech && speech.status && speech.status.textToSpeech !== 'unavailable'),
     },
@@ -72,6 +74,16 @@ exports.getHealth = async (req, res) => {
         languages: ['en', 'hi', 'kn'],
         fractionWords: true,
         ambiguousDates: true,
+      },
+      call: {
+        supported: true,
+        languages: ['en', 'hi', 'kn', 'ta', 'te', 'bn', 'mr', 'gu', 'ml', 'pa', 'ur'],
+        fullAnswerLanguages: ['en', 'hi', 'kn'],
+        spokenAnswers: 'trimmed for speech, with "tell me more"',
+        medicalSafety: {
+          emergencyNumbers: ['108', '104', '14416'],
+          redFlags: 'chest pain, breathing, bleeding, fits, snake bite, poisoning, stroke, burns, accident, self-harm',
+        },
       },
       numberReadback: {
         supported: true,

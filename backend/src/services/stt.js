@@ -20,9 +20,8 @@ const { request } = require('./http');
 
 /** Languages the app supports, mapped to what the providers expect. */
 const SARVAM_LANGUAGE = {
-  en: 'en-IN',
-  hi: 'hi-IN',
-  kn: 'kn-IN',
+  en: 'en-IN', hi: 'hi-IN', kn: 'kn-IN', ta: 'ta-IN', te: 'te-IN', bn: 'bn-IN',
+  mr: 'mr-IN', gu: 'gu-IN', ml: 'ml-IN', pa: 'pa-IN', ur: 'ur-IN',
 };
 
 /** File extension a provider expects for the recorded audio. */
@@ -106,8 +105,12 @@ async function transcribeSarvam({ audio, contentType, language, config }) {
     const detail = res.text().slice(0, 200);
     throw new Error(`Sarvam speech to text failed (${res.status}): ${detail}`);
   }
-  const text = transcriptFrom(res.json());
-  return { text, provider: 'sarvam-saarika' };
+  const json = res.json() || {};
+  const text = transcriptFrom(json);
+  // Sarvam tells us which language it heard, which is how a call adapts when
+  // the caller switches language mid-sentence.
+  const detected = json.language_code ? String(json.language_code).split(/[-_]/)[0].toLowerCase() : null;
+  return { text, provider: 'sarvam-saarika', language: detected };
 }
 
 /**

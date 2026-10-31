@@ -24,6 +24,12 @@ import com.ruralassistant.app.data.remote.api.FeatureApiClient
 import com.ruralassistant.app.domain.model.AppLanguage
 import com.ruralassistant.app.RuralApp
 import com.ruralassistant.app.data.KnowledgePack
+import com.ruralassistant.app.data.LocalAnswer
+import com.ruralassistant.app.utils.SafetyGuard
+import com.ruralassistant.app.utils.SpeechInput
+import com.ruralassistant.app.utils.VoiceNoteQueue
+import android.media.MediaRecorder
+import java.io.File
 import com.ruralassistant.app.utils.ConnectivityMonitor
 import com.ruralassistant.app.utils.DeviceId
 import com.ruralassistant.app.utils.NumberReadBack
@@ -166,13 +172,24 @@ fun AssistantFeatureScreen(language: AppLanguage, category: String = "general", 
     var pendingDates by remember { mutableStateOf(listOf<NumberReadBack.DateItem>()) }
     var pendingToken by remember { mutableStateOf("") }
     var pendingPrompt by remember { mutableStateOf("") }
+    // Voice: what went wrong, and the recording we can keep instead of losing.
+    var voiceProblem by remember { mutableStateOf(false) }
+    var languageProblem by remember { mutableStateOf(false) }
+    var savedNotes by remember { mutableStateOf(VoiceNoteQueue.count(context)) }
+    var noteRecording by remember { mutableStateOf(false) }
+    val noteRecorder = remember { mutableStateOf<MediaRecorder?>(null) }
+    val noteFile = remember { mutableStateOf<File?>(null) }
     val pack by rememberPackStatus()
     val tts = remember { TextToSpeech(context) {} }
-    val recognizer = remember {
-        if (SpeechRecognizer.isRecognitionAvailable(context)) SpeechRecognizer.createSpeechRecognizer(context) else null
-    }
+    // On Android 12+ this is the on-device recogniser when the phone has one, so
+    // voice input keeps working with no network (given the language pack).
+    val recognizer = remember { SpeechInput.create(context) }
     DisposableEffect(Unit) {
-        onDispose { tts.shutdown(); recognizer?.destroy() }
+        onDispose {
+            tts.shutdown()
+            recognizer?.destroy()
+            try { noteRecorder.value?.release() } catch (_: Exception) {}
+        }
     }
 
     fun ttsLocaleFor(code: String) = when (code) {
@@ -220,11 +237,43 @@ fun AssistantFeatureScreen(language: AppLanguage, category: String = "general", 
         }
     }
 
+    /** Show an answer that came from the pack saved on the phone. */
+    fun renderLocal(result: LocalAnswer.Result) {
+        answerLanguage = result.language
+        answer = result.answer
+        sources = result.matchedTitle?.let { "Saved on this phone: $it" } ?: ""
+        answerAmounts = amountsIn(answer)
+        answerSpeech = emptyList()
+        factAsOf = ""; factVerifyUrl = ""; factVerifyAt = ""
+        verifyNotice = when {
+            result.redirect.isNotEmpty() -> "Call " + result.redirect.joinToString(" or ")
+            else -> SafetyGuard.offlineNotice(result.language)
+        }
+        status = if (result.grounded) {
+            "Answered from the information saved on this phone."
+        } else {
+            "Please verify important details with an official source."
+        }
+        if (result.emergency) speakPrompt(answer, result.language)
+    }
+
     /** Ask the question. language=auto so the answer matches the language asked. */
     fun submit() {
         scope.launch {
             loading = true; status = "Getting an answer…"; answer = ""; sources = ""; verifyNotice = ""
             answerAmounts = emptyList(); answerSpeech = emptyList(); factAsOf = ""; factVerifyUrl = ""; factVerifyAt = ""
+            // No internet: answer from the pack already saved on the phone
+            // instead of showing a connection error.
+            if (!ConnectivityMonitor(context).currentlyOnline()) {
+                try {
+                    renderLocal(LocalAnswer.answer(context, question.trim(), language.code))
+                } catch (e: Exception) {
+                    status = e.message ?: "Unable to read the saved information."
+                } finally {
+                    loading = false
+                }
+                return@launch
+            }
             try {
                 val body = JsonObject().apply {
                     addProperty("question", question.trim())
@@ -253,7 +302,12 @@ fun AssistantFeatureScreen(language: AppLanguage, category: String = "general", 
                 }
                 renderAnswer(data)
             } catch (e: Exception) {
-                status = e.message ?: "Unable to connect to backend."
+                // The server could not be reached: fall back to the saved pack.
+                try {
+                    renderLocal(LocalAnswer.answer(context, question.trim(), language.code))
+                } catch (inner: Exception) {
+                    status = e.message ?: "Unable to connect to backend."
+                }
             } finally {
                 loading = false
             }
@@ -304,12 +358,14 @@ fun AssistantFeatureScreen(language: AppLanguage, category: String = "general", 
             status = "Microphone permission is required for voice input."
             return@rememberLauncherForActivityResult
         }
+        val offline = !ConnectivityMonitor(context).currentlyOnline()
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, when (language) {
-                AppLanguage.KANNADA -> "kn-IN"; AppLanguage.HINDI -> "hi-IN"; else -> "en-IN"
-            })
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, SpeechInput.languageTag(language.code))
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, SpeechInput.languageTag(language.code))
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+            // Offline the recogniser has to use the downloaded language model.
+            putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, offline)
         }
         recognizer?.setRecognitionListener(object : android.speech.RecognitionListener {
             override fun onReadyForSpeech(params: android.os.Bundle?) { listening = true }
@@ -317,9 +373,18 @@ fun AssistantFeatureScreen(language: AppLanguage, category: String = "general", 
             override fun onRmsChanged(rmsdB: Float) {}
             override fun onBufferReceived(buffer: ByteArray?) {}
             override fun onEndOfSpeech() { listening = false }
-            override fun onError(error: Int) { listening = false; status = "Speech recognition error ($error). You can type instead." }
+            override fun onError(error: Int) {
+                listening = false
+                // Say what actually went wrong, in the user's language: no
+                // network, or the Hindi/Kannada voice pack is not installed.
+                languageProblem = SpeechInput.isLanguageProblem(error)
+                voiceProblem = languageProblem || SpeechInput.isNetworkProblem(error)
+                status = SpeechInput.errorMessage(error, language.code)
+            }
             override fun onResults(results: android.os.Bundle?) {
                 listening = false
+                voiceProblem = false
+                languageProblem = false
                 val heard = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
                 if (micMode == "confirm") {
                     // A spoken yes/no goes to the server, which understands all
@@ -333,6 +398,63 @@ fun AssistantFeatureScreen(language: AppLanguage, category: String = "general", 
             override fun onEvent(eventType: Int, params: android.os.Bundle?) {}
         })
         recognizer?.startListening(intent)
+    }
+
+    /** Keep the question as audio when it cannot be recognised now. */
+    fun startNoteRecording() {
+        try {
+            val file = File(context.cacheDir, "saved_question_${System.currentTimeMillis()}.m4a")
+            val mr = MediaRecorder()
+            mr.setAudioSource(MediaRecorder.AudioSource.MIC)
+            mr.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+            mr.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+            mr.setAudioSamplingRate(16000)
+            mr.setAudioEncodingBitRate(64000)
+            mr.setOutputFile(file.absolutePath)
+            mr.prepare()
+            mr.start()
+            noteRecorder.value = mr
+            noteFile.value = file
+            noteRecording = true
+            status = "Recording your question… tap Stop to save it."
+        } catch (e: Exception) {
+            status = e.message ?: "Could not start recording."
+            noteRecording = false
+        }
+    }
+
+    fun stopNoteRecording() {
+        val mr = noteRecorder.value ?: return
+        val file = noteFile.value
+        try { mr.stop() } catch (_: Exception) { status = "Recording was too short." }
+        try { mr.reset(); mr.release() } catch (_: Exception) {}
+        noteRecorder.value = null
+        noteRecording = false
+        if (file == null || !file.exists() || file.length() == 0L) return
+        val bytes = runCatching { file.readBytes() }.getOrNull()
+        file.delete()
+        if (bytes == null) return
+        val kept = VoiceNoteQueue.enqueue(context, bytes, language.code)
+        savedNotes = VoiceNoteQueue.count(context)
+        status = if (kept) {
+            "Saved. This recording will be turned into text when the internet is back."
+        } else {
+            "Too many saved recordings. Please ask by typing."
+        }
+    }
+
+    // A recording saved while offline becomes text as soon as the phone is online.
+    LaunchedEffect(Unit) {
+        if (ConnectivityMonitor(context).currentlyOnline() && VoiceNoteQueue.count(context) > 0) {
+            val done = VoiceNoteQueue.flush(context) { text, code ->
+                question = text
+                answerLanguage = code
+            }
+            if (done > 0) {
+                savedNotes = VoiceNoteQueue.count(context)
+                status = "Your saved recording was converted to text. Tap Ask."
+            }
+        }
     }
 
     fun startListening(mode: String) {
@@ -353,6 +475,36 @@ fun AssistantFeatureScreen(language: AppLanguage, category: String = "general", 
             enabled = recognizer != null && !loading && !listening,
             onClick = { startListening("question") },
         ) { Text(if (listening && micMode == "question") "Listening…" else "Speak your question") }
+
+        // When voice cannot work right now, say why and offer the way out:
+        // keep the recording for later, or open the voice settings.
+        if (voiceProblem || savedNotes > 0) {
+            Text(
+                SpeechInput.hint(language.code, offline = !ConnectivityMonitor(context).currentlyOnline()),
+                style = MaterialTheme.typography.labelSmall,
+            )
+        }
+        if (voiceProblem) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    modifier = Modifier.weight(1f),
+                    onClick = { if (noteRecording) stopNoteRecording() else startNoteRecording() },
+                ) { Text(if (noteRecording) "Stop and save" else "Save recording for later") }
+                if (languageProblem) {
+                    TextButton(onClick = {
+                        SpeechInput.voiceSettingsIntent()?.let { intent ->
+                            runCatching { context.startActivity(intent) }
+                        }
+                    }) { Text("Voice settings") }
+                }
+            }
+        }
+        if (savedNotes > 0) {
+            Text(
+                "$savedNotes saved recording(s) waiting to be converted to text.",
+                style = MaterialTheme.typography.labelSmall,
+            )
+        }
         Button(
             enabled = question.trim().length >= 2 && !loading,
             modifier = Modifier.fillMaxWidth(),

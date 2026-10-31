@@ -47,9 +47,13 @@ import androidx.core.content.ContextCompat
 import com.google.gson.JsonObject
 import com.ruralassistant.app.BuildConfig
 import com.ruralassistant.app.R
+import com.ruralassistant.app.data.LocalAnswer
 import com.ruralassistant.app.data.remote.api.FeatureApiClient
 import com.ruralassistant.app.domain.model.AppLanguage
+import com.ruralassistant.app.utils.ConnectivityMonitor
 import com.ruralassistant.app.utils.DeviceId
+import com.ruralassistant.app.utils.SafetyGuard
+import com.ruralassistant.app.utils.SpeechInput
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaType
@@ -61,23 +65,20 @@ import java.util.concurrent.atomic.AtomicBoolean
 /**
  * The call simulation.
  *
- * Tap the call logo on Home and the assistant picks up: it greets the user,
- * listens, and answers whatever is asked, in whichever supported language is
- * spoken. Nothing has to be typed — but a "type instead" box is there for
- * phones with no speech recognition, so the call always works.
+ * Tap the call logo and the assistant picks up: it greets the caller, listens,
+ * and answers whatever is asked, in whichever supported language is spoken.
+ * Nothing has to be typed, though there is a box to type in when a phone cannot
+ * hear well.
  *
- * It works in two modes, so a half-deployed setup still answers questions:
+ * Two modes, so it always answers something:
+ *   server call — POST /api/calls: small talk, medical triage, 108 redirects,
+ *                 eleven languages, short spoken answers with "tell me more".
+ *   offline     — the pack saved on the phone (data/LocalAnswer), with the same
+ *                 safety rule: a red flag gets 108, an unsure medical question
+ *                 gets 104, and nothing is invented.
  *
- *   server call  — POST /api/calls (full features: small talk, medical triage,
- *                  108 redirects, eleven languages).
- *   basic call   — if that endpoint is missing (older backend) or unreachable at
- *                  start-up, the call keeps going on POST /api/query, with the
- *                  emergency check done on the phone.
- *
- * Medical safety holds in both modes: red flags (chest pain, bleeding, fits,
- * snake bite, poisoning, self-harm …) get 108 / 14416 and a tappable dial
- * button instead of a chat answer, and a medical question the assistant is not
- * sure about points at 104 / 108.
+ * A follow-up is understood too: "aur kitna" after a PM-KISAN question is
+ * resolved on the server against the previous turn.
  */
 private data class Bubble(val fromUser: Boolean, val text: String, val language: String)
 
@@ -94,7 +95,7 @@ fun CallScreen(
     val deviceId = remember { DeviceId.get(context) }
 
     var phase by remember { mutableStateOf("dialing") }   // dialing | connected | ended
-    var mode by remember { mutableStateOf("server") }     // server | basic
+    var mode by remember { mutableStateOf("server") }     // server | offline
     var sessionId by remember { mutableStateOf<String?>(null) }
     var bubbles by remember { mutableStateOf(listOf<Bubble>()) }
     var status by remember { mutableStateOf("") }
@@ -106,11 +107,11 @@ fun CallScreen(
     var recording by remember { mutableStateOf(false) }
     var typed by remember { mutableStateOf("") }
     var retries by remember { mutableStateOf(0) }
+    var canAskMore by remember { mutableStateOf(false) }
 
     val tts = remember { TextToSpeech(context) {} }
-    val recognizer = remember {
-        if (SpeechRecognizer.isRecognitionAvailable(context)) SpeechRecognizer.createSpeechRecognizer(context) else null
-    }
+    // On-device recogniser where the phone has one: it works with no network.
+    val recognizer = remember { SpeechInput.create(context) }
     val recorder = remember { mutableStateOf<MediaRecorder?>(null) }
     val recordingFile = remember { mutableStateOf<File?>(null) }
     val afterSpeak = remember { mutableStateOf<(() -> Unit)?>(null) }
@@ -120,12 +121,7 @@ fun CallScreen(
     val listState = rememberLazyListState()
     val main = remember { Handler(Looper.getMainLooper()) }
 
-    fun ttsLocaleFor(code: String) = when (code) {
-        "kn" -> Locale("kn", "IN"); "hi" -> Locale("hi", "IN"); "ta" -> Locale("ta", "IN")
-        "te" -> Locale("te", "IN"); "bn" -> Locale("bn", "IN"); "mr" -> Locale("mr", "IN")
-        "gu" -> Locale("gu", "IN"); "ml" -> Locale("ml", "IN"); "pa" -> Locale("pa", "IN")
-        "ur" -> Locale("ur", "IN"); else -> Locale("en", "IN")
-    }
+    fun ttsLocaleFor(code: String) = Locale(SpeechInput.languageTag(code).substringBefore('-'), SpeechInput.languageTag(code).substringAfter('-'))
 
     DisposableEffect(Unit) {
         tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
@@ -155,8 +151,7 @@ fun CallScreen(
 
     /**
      * Speak an answer, then do the next thing (usually: listen again). A timeout
-     * guards against a phone whose text-to-speech never reports completion, so
-     * the conversation can never get stuck waiting for a voice.
+     * guards against a phone whose text-to-speech never reports completion.
      */
     fun speak(text: String, code: String, then: (() -> Unit)? = null) {
         if (text.isBlank()) { then?.invoke(); return }
@@ -172,7 +167,6 @@ fun CallScreen(
         try {
             tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "call-${System.currentTimeMillis()}")
         } catch (_: Exception) {
-            // No speech engine: the text is on screen, so carry on.
             proceed()
             return
         }
@@ -186,11 +180,11 @@ fun CallScreen(
         scope.launch { listState.animateScrollToItem((bubbles.size - 1).coerceAtLeast(0)) }
     }
 
-    // ------------------------------------------------------------ one call turn
-    fun showRedirect(numbers: List<Pair<String, String>>) {
-        redirect = if (numbers.isEmpty()) null else Redirect(numbers)
+    fun showRedirect(numbers: List<String>) {
+        redirect = if (numbers.isEmpty()) null else Redirect(numbers.map { it to labelFor(it) })
     }
 
+    // ------------------------------------------------------------ one call turn
     fun handleTurn(data: JsonObject?) {
         if (data == null) { status = "Empty reply from the assistant."; return }
         val said = data.get("transcript")?.asString.orEmpty()
@@ -201,16 +195,14 @@ fun CallScreen(
         answerLanguage = code
         val answer = data.get("answer")?.asString.orEmpty()
         addBubble(false, answer, code)
+        canAskMore = data.get("moreAvailable")?.asBoolean == true
 
-        // Emergency, or "I am not sure", comes back with numbers to call.
         val redirectJson = data.getAsJsonObject("redirect")
         if (redirectJson != null) {
             val numbers = redirectJson.getAsJsonArray("numbers")?.mapNotNull { el ->
-                val o = el.asJsonObject
-                val number = o.get("number")?.asString ?: return@mapNotNull null
-                number to (o.get("label")?.asString ?: "")
+                el.asJsonObject.get("number")?.asString
             } ?: emptyList()
-            showRedirect(numbers)
+            redirect = if (numbers.isEmpty()) null else Redirect(numbers.map { it to labelFor(it) })
         }
 
         val urgent = data.get("urgency")?.asString == "urgent"
@@ -225,54 +217,26 @@ fun CallScreen(
         }
     }
 
-    /** The full call endpoint is not on this server: answer through /api/query. */
-    fun sendBasicTurn(transcript: String) {
-        val lang = answerLanguage
-        // Emergency first — this is the safety rule, kept on the phone too.
-        val emergency = localEmergency(transcript, lang)
-        if (emergency != null) {
-            addBubble(false, emergency, lang)
-            showRedirect(listOf("108" to "Ambulance"))
-            status = context.getString(R.string.call_emergency)
-            speak(emergency, lang) { if (!muted) listenRef.value?.invoke() }
-            return
-        }
-        val small = localSmallTalk(transcript, lang)
-        if (small != null) {
-            addBubble(false, small, lang)
-            speak(small, lang) { if (!muted) listenRef.value?.invoke() }
-            return
-        }
-
-        busy = true
-        status = context.getString(R.string.call_thinking)
+    /** No server: answer from the pack saved on the phone, safety rule included. */
+    fun localTurn(transcript: String) {
         scope.launch {
+            busy = true
+            status = context.getString(R.string.call_thinking)
             try {
-                val body = JsonObject().apply {
-                    addProperty("question", transcript)
-                    addProperty("language", "auto")
-                    addProperty("category", "general")
+                val result = LocalAnswer.answer(context, transcript, answerLanguage)
+                answerLanguage = result.language
+                addBubble(false, result.answer, result.language)
+                redirect = if (result.redirect.isEmpty()) null else Redirect(result.redirect.map { it to labelFor(it) })
+                canAskMore = false
+                status = if (result.emergency) {
+                    context.getString(R.string.call_emergency)
+                } else {
+                    SafetyGuard.offlineNotice(result.language)
                 }
-                val data = api.ask(deviceId, body).getAsJsonObject("data")
-                val code = data?.get("answerLanguage")?.asString
-                    ?: data?.get("language")?.asString
-                    ?: lang
-                answerLanguage = code
-                val grounded = data?.get("grounded")?.asBoolean == true
-                var answer = data?.get("answer")?.asString.orEmpty()
-                if (!grounded && looksMedical(transcript)) {
-                    // No verified answer to a medical question: never guess.
-                    answer = localUncertain(code)
-                    showRedirect(listOf("104" to "Health advice", "108" to "Ambulance"))
-                }
-                addBubble(false, answer.ifBlank { "I could not reach the assistant. Please try again." }, code)
-                status = context.getString(R.string.call_connected)
                 retries = 0
-                speak(answer, code) { if (!muted) listenRef.value?.invoke() }
+                speak(result.answer, result.language) { if (!muted) listenRef.value?.invoke() }
             } catch (e: Exception) {
-                val sorry = "I cannot reach the assistant right now. Please check the internet and try again."
-                addBubble(false, sorry, lang)
-                status = e.message ?: sorry
+                status = e.message ?: "Could not answer."
             } finally {
                 busy = false
             }
@@ -281,13 +245,12 @@ fun CallScreen(
 
     fun sendTurn(transcript: String?, audioBytes: ByteArray?) {
         if (transcript != null) addBubble(true, transcript, answerLanguage)
-        if (mode == "basic") {
-            if (transcript != null) sendBasicTurn(transcript)
-            else status = "Please type your question instead."
+        if (mode == "offline") {
+            if (transcript != null) localTurn(transcript) else status = "Please type your question instead."
             return
         }
         val id = sessionId
-        if (id == null) { if (transcript != null) sendBasicTurn(transcript); return }
+        if (id == null) { if (transcript != null) localTurn(transcript); return }
         busy = true
         status = context.getString(R.string.call_thinking)
         scope.launch {
@@ -296,11 +259,11 @@ fun CallScreen(
                 val response = api.callTurn(deviceId = deviceId, id = id, transcript = transcript, audio = body)
                 handleTurn(response.getAsJsonObject("data"))
             } catch (e: Exception) {
-                // The call endpoint went away mid-call: keep the conversation going.
-                mode = "basic"
+                // The call endpoint is unreachable: keep the conversation going
+                // on the saved pack instead of dropping the caller.
+                mode = "offline"
                 sessionId = null
-                if (transcript != null) sendBasicTurn(transcript)
-                else status = e.message ?: "Could not reach the assistant."
+                if (transcript != null) localTurn(transcript) else status = e.message ?: "Could not reach the assistant."
             } finally {
                 busy = false
             }
@@ -347,20 +310,16 @@ fun CallScreen(
     fun startListening() {
         if (muted || phase == "ended") return
         if (recognizer == null) {
-            // No on-device recogniser: record and let the server transcribe.
             if (mode == "server") startRecording() else status = "Type your question below."
             return
         }
+        val offline = !ConnectivityMonitor(context).currentlyOnline()
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            // Ask for the language the assistant last answered in, so a caller who
-            // switched language mid-call keeps being understood.
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, when (answerLanguage) {
-                "kn" -> "kn-IN"; "hi" -> "hi-IN"; "ta" -> "ta-IN"; "te" -> "te-IN"
-                "bn" -> "bn-IN"; "mr" -> "mr-IN"; "gu" -> "gu-IN"; "ml" -> "ml-IN"
-                "pa" -> "pa-IN"; "ur" -> "ur-IN"; else -> "en-IN"
-            })
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, SpeechInput.languageTag(answerLanguage))
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, SpeechInput.languageTag(answerLanguage))
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+            putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, offline)
         }
         recognizer.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(params: Bundle?) {
@@ -373,13 +332,13 @@ fun CallScreen(
             override fun onEndOfSpeech() { listening = false }
             override fun onError(error: Int) {
                 listening = false
-                // Silence is normal in a call: try twice more, then let the user tap.
-                if (retries < 2 && !muted) {
+                // Silence is normal in a call: retry twice, then explain and let
+                // the caller tap or type.
+                if (SpeechInput.isSilence(error) && retries < 2 && !muted) {
                     retries += 1
-                    status = context.getString(R.string.call_retry)
                     scope.launch { delay(900); listenRef.value?.invoke() }
                 } else {
-                    status = context.getString(R.string.call_retry)
+                    status = SpeechInput.errorMessage(error, answerLanguage)
                 }
             }
             override fun onResults(results: Bundle?) {
@@ -404,10 +363,19 @@ fun CallScreen(
         status = context.getString(R.string.call_connecting)
         bubbles = emptyList()
         redirect = null
+        canAskMore = false
+        if (!ConnectivityMonitor(context).currentlyOnline()) {
+            // No network: answer from the pack on the phone.
+            mode = "offline"
+            phase = "connected"
+            val greeting = localGreeting(language.code)
+            addBubble(false, greeting, language.code)
+            speak(greeting, language.code) { if (!muted) listenRef.value?.invoke() }
+            return
+        }
         scope.launch {
             try {
                 val body = JsonObject().apply {
-                    // auto: the assistant answers in whatever language the caller uses.
                     addProperty("language", "auto")
                     addProperty("uiLanguage", language.code)
                 }
@@ -425,12 +393,10 @@ fun CallScreen(
                 addBubble(false, greeting, greetingLang)
                 speak(greeting, greetingLang) { if (!muted) listenRef.value?.invoke() }
             } catch (e: Exception) {
-                // Older backend or a cold start: run the call on /api/query instead,
-                // so pressing the call button still gets the user an answer.
-                mode = "basic"
+                // Older backend or a cold start: answer from the saved pack.
+                mode = "offline"
                 sessionId = null
                 phase = "connected"
-                status = context.getString(R.string.call_connected)
                 val greeting = localGreeting(language.code)
                 addBubble(false, greeting, language.code)
                 speak(greeting, language.code) { if (!muted) listenRef.value?.invoke() }
@@ -455,7 +421,6 @@ fun CallScreen(
         startCall()
     }
 
-    // Auto-dial: the user already pressed the call logo.
     LaunchedEffect(Unit) {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
             startCall()
@@ -489,7 +454,7 @@ fun CallScreen(
                 Text(
                     when (phase) {
                         "dialing" -> stringResource(R.string.call_connecting)
-                        "connected" -> stringResource(R.string.call_connected)
+                        "connected" -> if (mode == "offline") "Offline · saved answers" else stringResource(R.string.call_connected)
                         else -> stringResource(R.string.call_ended)
                     },
                     style = MaterialTheme.typography.bodySmall,
@@ -566,6 +531,12 @@ fun CallScreen(
                         }
                     }
                 }
+            }
+        }
+
+        if (!isEnded && canAskMore) {
+            TextButton(onClick = { sendTurn("tell me more", null) }, enabled = !busy) {
+                Text("Tell me more")
             }
         }
 
@@ -669,73 +640,18 @@ fun CallScreen(
     }
 }
 
-// ---------------------------------------------------------------- local helpers
-// Used when the full call endpoint is not available, so the safety rules and the
-// basics still work on an older backend.
+private fun labelFor(number: String): String = when (number) {
+    "108" -> "Ambulance"
+    "104" -> "Health advice"
+    "112" -> "All emergencies"
+    "14416" -> "Counselling"
+    else -> ""
+}
 
 private fun localGreeting(lang: String): String = when (lang) {
-    "hi" -> "नमस्कार, मैं ग्रामसहायक हूँ। आप किसी भी भाषा में पूछ सकते हैं। बोलिए या नीचे लिखिए।"
-    "kn" -> "ನಮಸ್ಕಾರ, ನಾನು ಗ್ರಾಮಸಹಾಯಕ್. ಯಾವುದೇ ಭಾಷೆಯಲ್ಲಿ ಕೇಳಬಹುದು. ಮಾತನಾಡಿ ಅಥವಾ ಕೆಳಗೆ ಬರೆಯಿರಿ."
-    else -> "Namaskara, this is GramSahayak. Ask me anything — speak, or type below."
-}
-
-private fun localUncertain(lang: String): String = when (lang) {
-    "hi" -> "इस बारे में मुझे पक्का नहीं पता। कृपया इस पर अमल न करें। स्वास्थ्य सलाह के लिए 104 पर, और ज़्यादा परेशानी हो तो 108 पर कॉल करें।"
-    "kn" -> "ಇದರ ಬಗ್ಗೆ ನನಗೆ ಖಚಿತವಿಲ್ಲ, ದಯವಿಟ್ಟು ಇದನ್ನು ಪಾಲಿಸಬೇಡಿ. ಆರೋಗ್ಯ ಸಲಹೆಗೆ 104 ಗೆ, ತುರ್ತಾದರೆ 108 ಗೆ ಕರೆ ಮಾಡಿ."
-    else -> "I am not sure about this, so please do not act on it. Call 104 for health advice, or 108 if it is urgent."
-}
-
-private fun localEmergency(text: String, lang: String): String? {
-    val t = text.lowercase()
-    val flags = listOf(
-        "chest pain", "seene mein dard", "छाती में दर्द", "सीने में दर्द", "ಎದೆ ನೋವು",
-        "cannot breathe", "breathless", "saans nahi", "सांस", "ದಮ ಘುಟ", "ಉಸಿರಾಟ",
-        "bleeding", "khoon", "खून", "ರಕ್ತ",
-        "unconscious", "behosh", "बेहोश", "fits", "daura", "दौरा", "मिर्गी", "ಪ್ರಜ್ಞೆ", "ಸೆಳವು",
-        "snake", "saanp", "सांप", "ಹಾವು",
-        "poison", "zeher", "जहर", "ವಿಷ",
-        "suicide", "atmahatya", "आत्महत्या", "ಆತ್ಮಹತ್ಯೆ",
-        "accident", "durghatna", "दुर्घटना", "ಅಪಘಾತ",
-    )
-    if (flags.none { t.contains(it) }) return null
-    return when (lang) {
-        "hi" -> "यह आपातकाल जैसा लगता है। कृपया अभी 108 पर कॉल करें। मरीज़ के पास रहें और कुछ खाने-पीने न दें।"
-        "kn" -> "ಇದು ತುರ್ತು ಪರಿಸ್ಥಿತಿ ಎನಿಸುತ್ತದೆ. ದಯವಿಟ್ಟು ಈಗಲೇ 108 ಗೆ ಕರೆ ಮಾಡಿ. ರೋಗಿಯ ಬಳಿ ಇರಿ, ಏನನ್ನೂ ತಿನ್ನಲು ಕೊಡಬೇಡಿ."
-        else -> "This sounds urgent. Please call 108 now. Stay with the person and do not give food or water."
-    }
-}
-
-private fun looksMedical(text: String): Boolean {
-    val t = text.lowercase()
-    val words = listOf(
-        "doctor", "dawa", "tablet", "medicine", "ilaj", "hospital", "bimar", "fever", "bukhar",
-        "dard", "pain", "jwara", "noyu", "vomit", "ulti", "loose", "dast", "cough", "khansi",
-        "swelling", "sujan", "wound", "ghav", "डॉक्टर", "दवा", "बुखार", "दर्द", "उल्टी", "खांसी",
-        "ವೈದ್ಯ", "ಔಷಧ", "ಜ್ವರ", "ನೋವು", "ವಾಂತಿ", "ಕೆಮ್ಮು",
-    )
-    return words.any { t.contains(it) }
-}
-
-private fun localSmallTalk(text: String, lang: String): String? {
-    val t = text.trim().lowercase()
-    // No \b here: JavaScript-style word boundaries do not work on Devanagari.
-    val isHello = Regex("^(hi|hello|hey)(?![a-z])|^(namaste|namaskar|namaskara|नमस्ते|नमस्कार|ನಮಸ್ಕಾರ)").containsMatchIn(t)
-    val isThanks = t.contains("thank") || t.contains("dhanyavad") || t.contains("धन्यवाद") || t.contains("ಧನ್ಯವಾದ")
-    val isBye = t.contains("bye") || t.contains("फोन रख") || t.contains("अलविदा") || t.contains("ಮುಗಿಸಿ")
-    return when {
-        isBye -> when (lang) {
-            "hi" -> "नमस्ते, अपना ध्यान रखिए।"
-            "kn" -> "ವಂದನೆಗಳು, ಆರೋಗ್ಯ ನೋಡಿಕೊಳ್ಳಿ."
-            else -> "Goodbye, take care."
-        }
-        isThanks -> when (lang) {
-            "hi" -> "आपका स्वागत है। कुछ और पूछना है?"
-            "kn" -> "ಸ್ವಾಗತ. ಇನ್ನೇನಾದರೂ ಕೇಳಬೇಕೇ?"
-            else -> "You are welcome. Anything else?"
-        }
-        isHello -> localGreeting(lang)
-        else -> null
-    }
+    "hi" -> "नमस्कार, मैं ग्रामसहायक हूँ। इंटरनेट नहीं है, फिर भी फोन में सहेजी जानकारी से जवाब दूँगा। बोलिए या लिखिए।"
+    "kn" -> "ನಮಸ್ಕಾರ, ನಾನು ಗ್ರಾಮಸಹಾಯಕ್. ಇಂಟರ್ನೆಟ್ ಇಲ್ಲ, ಆದರೂ ಫೋನ್‌ನಲ್ಲಿ ಉಳಿಸಿದ ಮಾಹಿತಿಯಿಂದ ಉತ್ತರಿಸುತ್ತೇನೆ. ಮಾತನಾಡಿ ಅಥವಾ ಬರೆಯಿರಿ."
+    else -> "Namaskara, this is GramSahayak. There is no internet, so I will answer from what is saved on your phone. Speak, or type below."
 }
 
 private fun languageName(code: String): String = when (code) {

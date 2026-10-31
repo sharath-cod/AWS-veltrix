@@ -12,6 +12,10 @@ interface KnowledgeDao {
     @Query("SELECT * FROM knowledge_items WHERE language = :language ORDER BY title")
     fun observeByLanguage(language: String): Flow<List<KnowledgeEntity>>
 
+    /** Offline answers: the whole pack for one language, read once per question. */
+    @Query("SELECT * FROM knowledge_items WHERE language = :language")
+    suspend fun getByLanguage(language: String): List<KnowledgeEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(items: List<KnowledgeEntity>)
 

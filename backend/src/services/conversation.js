@@ -95,4 +95,20 @@ function match(input, lang) {
   return null;
 }
 
-module.exports = { match, languageList };
+/**
+ * "Tell me more" — continues the previous answer instead of asking a new
+ * question. Kept separate from the intents because it needs the stored answer.
+ */
+const MORE_REQUEST = new RegExp(
+  `${NOT_LETTER_BEFORE}(?:more|more please|tell me more|continue|go on|aage|aur batao|aur bata|aur sunao|baaki|baki|poora batao|और बताओ|और बताइए|आगे|बाकी|पूरा बताओ|innu heli|hechchu heli|munde heli|ಇನ್ನೂ ಹೇಳಿ|ಮುಂದೆ ಹೇಳಿ|ಪೂರ್ತಿ ಹೇಳಿ)${NOT_LETTER_AFTER}`,
+  'iu',
+);
+
+function isMoreRequest(input) {
+  const t = String(input || '').trim();
+  if (!t) return false;
+  if (words(t).length > 6) return false;
+  return MORE_REQUEST.test(t);
+}
+
+module.exports = { match, languageList, isMoreRequest };

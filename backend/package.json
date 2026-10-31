@@ -13,10 +13,11 @@
     "seed": "node scripts/seed.js",
     "smoke": "node scripts/smoke-test.js",
     "contract": "node scripts/contract-test.js",
-    "verify": "node scripts/smoke-test.js && node scripts/contract-test.js && node scripts/hurdle-test.js",
+    "verify": "node scripts/smoke-test.js && node scripts/contract-test.js && node scripts/hurdle-test.js && node scripts/call-test.js",
     "bench": "node scripts/bench.js",
     "hurdles": "node scripts/hurdle-test.js",
-    "touch": "node scripts/touch-entry.js"
+    "touch": "node scripts/touch-entry.js",
+    "call": "node scripts/call-test.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

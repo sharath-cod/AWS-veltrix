@@ -10,6 +10,8 @@ router.use('/reminders', require('./reminders.routes'));
 router.use('/scam-check', require('./scam-check.routes'));
 router.use('/sms', require('./sms.routes'));
 router.use('/voice-sessions', require('./voice-sessions.routes'));
+router.use('/calls', require('./calls.routes'));
+router.use('/transcribe', require('./transcribe.routes'));
 router.use('/numbers', require('./numbers.routes'));
 router.use('/sync', require('./sync.routes'));
 

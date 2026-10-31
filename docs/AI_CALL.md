@@ -109,6 +109,28 @@ android/…/ui/screens/call/CallScreen.kt   ringing, greeting, turns, emergency 
 android/…/ui/screens/home/HomeScreen.kt   the call logo
 ```
 
+## Answers that fit a call
+
+A knowledge-base entry is written to be read; a call is listened to. So the call does not read
+out the whole paragraph:
+
+- the first two or three sentences (about 55 words) are spoken, and `moreAvailable` is true
+  when there is more — the app shows **Tell me more**, and saying "aur batao" / "tell me more"
+  continues from where it stopped;
+- `answerFull` carries the whole text for reading;
+- a short follow-up ("aur kitna", "uske liye kya chahiye", "ಎಷ್ಟು") is resolved against the
+  previous question, and when it lands on the same entry the answer **continues** instead of
+  repeating the first sentences;
+- a weak match is not read out at all: if the best entry is only approximate, or the question
+  and the entry are not about the same thing, the call says "I am not sure — 104 / 108".
+
+## Offline
+
+With no network the call does not fail: it switches to the pack saved on the phone
+(`data/LocalAnswer.kt`), applies the same safety rule, and labels itself *Offline · saved
+answers*. A spoken question that cannot be recognised offline is kept as a recording and
+transcribed through `POST /api/transcribe` when the network returns.
+
 ## Honest limits
 
 - The knowledge base is English, Hindi and Kannada. Other languages depend on a translate
