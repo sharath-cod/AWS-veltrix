@@ -35,7 +35,6 @@ import com.ruralassistant.app.utils.DeviceId
 import com.ruralassistant.app.utils.NumberReadBack
 import kotlinx.coroutines.launch
 import java.util.Locale
-import java.util.UUID
 
 private val api by lazy { FeatureApiClient.create(BuildConfig.API_BASE_URL) }
 private fun deviceId(context: android.content.Context): String = DeviceId.get(context)
@@ -819,48 +818,6 @@ fun ScholarshipsFeatureScreen(language: AppLanguage) {
                             } catch (e: Exception) { status = e.message ?: "Could not update saved list." }
                         }
                     }) { Text(if (id in saved) "Remove saved" else "Save scholarship") }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun RemindersFeatureScreen(language: AppLanguage) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var items by remember { mutableStateOf(listOf<JsonObject>()) }
-    var title by remember { mutableStateOf("") }
-    var date by remember { mutableStateOf("") }
-    var status by remember { mutableStateOf("Loading reminders…") }
-    suspend fun refresh() { items = api.reminders(deviceId(context)).dataArray(); status = "${items.size} reminders." }
-    LaunchedEffect(Unit) { try { refresh() } catch (e: Exception) { status = e.message ?: "Could not load reminders." } }
-    Page("Reminders") {
-        OutlinedTextField(title, { title = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Reminder title") })
-        OutlinedTextField(date, { date = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Date and time (ISO 8601)") }, placeholder = { Text("2026-11-01T09:00:00+05:30") })
-        Button(enabled = title.isNotBlank() && date.isNotBlank(), modifier = Modifier.fillMaxWidth(), onClick = {
-            scope.launch {
-                try {
-                    val body = JsonObject().apply {
-                        addProperty("title", title.trim()); addProperty("type", "other")
-                        addProperty("remindAt", date.trim()); addProperty("repeat", "none")
-                        addProperty("clientId", UUID.randomUUID().toString())
-                    }
-                    api.createReminder(deviceId(context), body); title = ""; date = ""; refresh()
-                } catch (e: Exception) { status = e.message ?: "Could not create reminder." }
-            }
-        }) { Text("Add reminder") }
-        StatusText(status)
-        items.forEach { item ->
-            val id = item.str("id")
-            Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                Column(Modifier.padding(12.dp)) {
-                    Text(item.str("title"), style = MaterialTheme.typography.titleMedium)
-                    Text(item.str("remindAt"))
-                    Row {
-                        TextButton(onClick = { scope.launch { try { api.updateReminder(deviceId(context), id, JsonObject().apply { addProperty("completed", true) }); refresh() } catch (e: Exception) { status = e.message ?: "Update failed." } } }) { Text("Complete") }
-                        TextButton(onClick = { scope.launch { try { api.deleteReminder(deviceId(context), id); refresh() } catch (e: Exception) { status = e.message ?: "Delete failed." } } }) { Text("Delete") }
-                    }
                 }
             }
         }

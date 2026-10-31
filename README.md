@@ -25,7 +25,7 @@ hosting files, deployment/API/Android guides) with the newest implementation (`g
 | Ask → read-back card | `POST /api/query/confirm` | Amounts, IDs and ambiguous dates are read back before the answer is released |
 | Schemes | `GET /api/schemes`, `POST /api/schemes/check` | Search, details, indicative eligibility first pass |
 | Scholarships | `GET /api/scholarships`, `/saved` | Save and unsave per device |
-| Reminders | `GET/POST/PUT/DELETE /api/reminders` | Idempotent on `clientId`, so offline retries do not duplicate |
+| Reminders | `GET/POST/PUT/DELETE /api/reminders` | Add/edit pop-up with date and time pickers, type and repeat; idempotent on `clientId`, so offline retries do not duplicate |
 | Scam checker | `POST /api/scam-check` | 10 explainable rules, en/hi/kn reasons and advice |
 | SMS Centre | `/api/sms/*` | Simulation only — nothing is ever delivered to a handset |
 | Virtual call | `/api/voice-sessions` | Speech to text via Sarvam, any Whisper-compatible endpoint, or Amazon Transcribe; Polly for spoken replies |

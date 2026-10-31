@@ -256,6 +256,43 @@ async function main() {
   check('reminder list contains it', (reminders.json.data || []).some((r) => r.id === reminderId));
   const updated = await call('PUT', `/api/reminders/${reminderId}`, { headers: { 'x-device-id': DEVICE }, body: { completed: true } });
   check('reminder can be completed', updated.json.data.completed === true, updated.json.data);
+  // The add dialog sends a type, a repeat rule, an optional note and an ISO
+  // timestamp with the phone's own offset — never a hand-typed date string.
+  const dialog = await call('POST', '/api/reminders', {
+    headers: { 'x-device-id': DEVICE },
+    body: {
+      title: 'BP tablet after food',
+      type: 'medicine',
+      repeat: 'daily',
+      remindAt: '2026-11-02T08:30:00+05:30',
+      notes: 'One tablet with water',
+      clientId: 'client-dialog-1',
+    },
+  });
+  check(
+    'the add-reminder dialog payload is accepted',
+    dialog.status === 201
+      && dialog.json.data.type === 'medicine'
+      && dialog.json.data.repeat === 'daily'
+      && dialog.json.data.notes === 'One tablet with water'
+      && dialog.json.data.remindAt === '2026-11-02T08:30:00+05:30',
+    dialog.json.data,
+  );
+
+  const edited = await call('PUT', `/api/reminders/${dialog.json.data.id}`, {
+    headers: { 'x-device-id': DEVICE },
+    body: { title: 'BP tablet after dinner', type: 'health', repeat: 'weekly', remindAt: '2026-11-03T20:00:00+05:30' },
+  });
+  check(
+    'editing a reminder keeps the changed fields',
+    edited.json.data.title === 'BP tablet after dinner'
+      && edited.json.data.type === 'health'
+      && edited.json.data.repeat === 'weekly'
+      && edited.json.data.remindAt === '2026-11-03T20:00:00+05:30',
+    edited.json.data,
+  );
+  await call('DELETE', `/api/reminders/${dialog.json.data.id}`, { headers: { 'x-device-id': DEVICE } });
+
   const removed = await call('DELETE', `/api/reminders/${reminderId}`, { headers: { 'x-device-id': DEVICE } });
   check('reminder can be deleted', removed.status === 200, removed.status);
 

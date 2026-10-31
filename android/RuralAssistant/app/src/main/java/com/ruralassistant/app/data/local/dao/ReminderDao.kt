@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ReminderDao {
-    @Query("SELECT * FROM reminders ORDER BY triggerAtMillis")
+    @Query("SELECT * FROM reminders ORDER BY completed ASC, triggerAtMillis ASC")
     fun observeAll(): Flow<List<ReminderEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -20,4 +20,12 @@ interface ReminderDao {
 
     @Query("SELECT COUNT(*) FROM reminders")
     suspend fun count(): Int
+
+    /**
+     * Drop the cached copies of what the server holds, before writing a fresh
+     * list. Rows created on this phone that have not synced yet are kept, so a
+     * refresh cannot throw away something the user just added offline.
+     */
+    @Query("DELETE FROM reminders WHERE synced = 1")
+    suspend fun clearSynced(): Int
 }
